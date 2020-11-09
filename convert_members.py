@@ -13,7 +13,6 @@ def list_all_files(path):
             print(entry.name)
 
 # Dataframe for members
-members=None
 def read_file(file_name):
     """
     Read and return Excel file as df
@@ -21,7 +20,6 @@ def read_file(file_name):
     df = pd.read_excel(file_name, dtype = {'Hemtelefon': object, 'Mobiltelefon': object, 'Arbetstelefon': object})
     return df
 
-id_df=None
 def read_id_file(file_name):
     """
     Read file with member id and personnummer
@@ -49,17 +47,8 @@ def save_file(file_name, df):
     Save to Excel file.
     Feature: Personnummer2 is in format string, else scentific output format
     """
-    ##with ExcelWriter(file_name) as writer:
-    ##    df.to_excel(writer)
-    # df["Personnummer2"] = df["Personnummer2"].astype('int64') # Funkar inte
-    # df["Personnummer2"] = df["Personnummer2"].astype('object') # Funkar inte
-    #df["Personnummer2"] = df["Personnummer2"].astype('string') # Funkar men string
-    #df["Personnummer2"] = df["Personnummer2"].astype('float64') # 
-    #df["Hemtelefon"] = df["Hemtelefon"].astype('string') 
     df.to_excel(file_name, index=False)
     return df
-
-# file = path + 'files/Senior-excel.txt'
 
 def process_files(path):
     """
@@ -77,7 +66,7 @@ def process_files(path):
             merged_df = None
             name = entry.name
             if entry.is_file() and name.endswith('-excel.txt'): 
-                print(name)
+                #print(name)
                 i_df = read_id_file(path + "/" + name)
                 m_df = read_file(path + "/" + name.replace('.txt','.xls'))
                 merged_df = merge_dfs(m_df, i_df, 'MedlemsID', 'left')
@@ -85,24 +74,26 @@ def process_files(path):
 
     it.close()
 
+def convert_members(mc_file_name, io_file_name):
+    """
+    Takes a My Club All members file and convert to IdrottOnline Import Excel
+    """
+    # My Club Dataframe
+    mc_df = read_file(mc_file_name)
+
+    io_in_df = read_file(io_file_name)
+
+    # IO Output Dataframe
+    io_out_cols = ['Prova-på','Förnamn','Alt. förnamn','Efternamn','Kön','Nationalitet','IdrottsID','Födelsedat./Personnr.','Telefon mobil','E-post kontakt','Kontaktadress - c/o adress','Kontaktadress - Gatuadress','Kontaktadress - Postnummer','Kontaktadress - Postort','Kontaktadress - Land','Arbetsadress - c/o adress','Arbetsadress - Gatuadress','Arbetsadress - Postnummer','Arbetsadress - Postort','Arbetsadress - Land','Telefon bostad','Telefon arbete','E-post privat','E-post arbete','Medlemsnr.','Medlem sedan','Medlem t.o.m.','Övrig medlemsinfo','Familj','Fam.Admin','Lägg till GruppID','Ta bort GruppID']
+    io_out_df = pd.DataFrame(columns=io_out_cols)
+
+    print(mc_df)
+    print(io_in_df)
+    print(io_out_df)
+
 # Action 
+convert_members('/usr/src/app/files/MyClub_all_member_export.xls','/usr/src/app/files/2020-11-08_all-io-members.xlsx')
 
-# Get mapping of id <-> pnr
-#id_df = read_id_file(path + "/Senior-excel.txt")
-
-# Get members from file
-#members = read_file(path + "/Senior-excel.xls")
-
-# Merge
-#mdf = merge_dfs(members, id_df, 'MedlemsID', 'left')
-#print(mdf['Personnummer2'])
-#print(mdf['Personnummer2'].dtypes)
-
-# Save result
-#result = save_file(path + "/Senior-merged.xlsx", mdf)
-#print(result['Personnummer2'])
-#print(result['Personnummer2'].dtypes)
-
-process_files('/usr/src/app/files')
+#process_files('/usr/src/app/files')
 
 print("done handle_members.py")
