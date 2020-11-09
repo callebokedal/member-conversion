@@ -1,0 +1,6 @@
+# To be used to create 'requirements.txt'
+# pip-compile requirements.in > requirements.txt
+pandas
+numpy
+xlsxwriter
+flask
