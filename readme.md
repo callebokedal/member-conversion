@@ -3,6 +3,9 @@
 https://pythonspeed.com/articles/base-image-python-docker-images/
 https://hub.docker.com/_/python
 
+## Merging
+https://pandas.pydata.org/pandas-docs/stable/user_guide/merging.html
+
 # Build
 docker build -t python-slim-buster .
 

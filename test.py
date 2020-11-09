@@ -43,11 +43,8 @@ def read_id_file(file_name):
     #print(df)
     return df
 
-
-
 #list_files(path)
 #list_all_files(path)
-
 
 # Get mapping of id <-> pnr
 id_df = read_id_file("./files/Senior-excel.txt")
@@ -61,6 +58,7 @@ members = read_file("./files/Senior-excel.xls")
 
 def merge_data(mem_df, id_df):
     """
+    Obsolete! Use merge_dfs instead
     Merges dataframe of members with data from id dataframe
     """
     mem_df['FullPNr'] = '' # pd.NA
