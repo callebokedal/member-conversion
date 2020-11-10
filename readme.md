@@ -9,20 +9,28 @@ https://hub.docker.com/_/python
 https://pandas.pydata.org/pandas-docs/stable/user_guide/merging.html
 
 # Build
+```bash
 docker build -t python-slim-buster .
-
+```
 # Run single scripts
+```bash
 docker run -it --rm --name my-test-script -v "$PWD":/usr/src/myapp -w /usr/src/myapp python-slim-buster python test.py
+```
 
+```bash
 docker run -it --rm --name my-test-script -v "$PWD":/usr/src/app -w /usr/src/app python-slim-buster python test.py
-
+```
+```bash
 clear && docker run -it --rm --name my-test-script -v "$PWD":/usr/src/app -w /usr/src/app python-slim-buster python test.py
-
+```
 ## Merge MC group export files with files containing full personnummer
+```bash
 clear && docker run -it --rm --name my-test-script -v "$PWD":/usr/src/app -w /usr/src/app python-slim-buster python handle_members.py
-
+```
 ## Convert and join My Club and IO members
+```bash
 clear && docker run -it --rm --name my-test-script -v "$PWD":/usr/src/app -w /usr/src/app python-slim-buster python convert_members.py
+```
 
 # My Club helper
 To get memberId and full Personnummer
