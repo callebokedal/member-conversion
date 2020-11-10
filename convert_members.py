@@ -71,8 +71,18 @@ def process_files(path):
                 m_df = read_file(path + "/" + name.replace('.txt','.xls'))
                 merged_df = merge_dfs(m_df, i_df, 'MedlemsID', 'left')
                 save_file(path + "/" + name.replace('-excel.txt','-merged.xlsx'), merged_df)
-
     it.close()
+
+def convert_personnummer(mc_pnr):
+    """
+    Convert Personnummer on format "yyyymmddnnnn" -> "yyyymmdd-nnnn". Also takes care of "yyyymmdd"
+    """
+    if len(mc_pnr) == 12:
+        return "{}-{}".format(mc_pnr[0:8],mc_pnr[-4:])
+    else:
+        # Assume as-is ok
+        return mc_pnr
+    
 
 def convert_members(mc_file_name, io_file_name):
     """
@@ -83,16 +93,81 @@ def convert_members(mc_file_name, io_file_name):
 
     io_in_df = read_file(io_file_name)
 
-    # IO Output Dataframe
-    io_out_cols = ['Prova-på','Förnamn','Alt. förnamn','Efternamn','Kön','Nationalitet','IdrottsID','Födelsedat./Personnr.','Telefon mobil','E-post kontakt','Kontaktadress - c/o adress','Kontaktadress - Gatuadress','Kontaktadress - Postnummer','Kontaktadress - Postort','Kontaktadress - Land','Arbetsadress - c/o adress','Arbetsadress - Gatuadress','Arbetsadress - Postnummer','Arbetsadress - Postort','Arbetsadress - Land','Telefon bostad','Telefon arbete','E-post privat','E-post arbete','Medlemsnr.','Medlem sedan','Medlem t.o.m.','Övrig medlemsinfo','Familj','Fam.Admin','Lägg till GruppID','Ta bort GruppID']
-    io_out_df = pd.DataFrame(columns=io_out_cols)
+    # My Club output columns - for ref
+    md_df_cols = ['Förnamn','Efternamn','För- och efternamn','Personnummer','Födelsedatum (YYYY-MM-DD)','LMA/Samordningsnummer','Ålder',
+        'Kön (flicka/pojke)','Kön (W/M)','Nationalitet','c/o','Adress','Postnummer','Postort','Land','Hemtelefon','Mobiltelefon','Arbetstelefon',
+        'E-post','Medlemstyp','MedlemsID','Ständig medlem','Datum registrerad','Senast ändrad','Autogiromedgivande','Kommentar','Aktiviteter totalt',
+        'Aktiviteter år 2020','Aktiviteter år 2019','Aktiviteter år 2018','Aktiviteter år 2017','Aktiviteter år 2016','Grupper','Alla grupper','Roller','Gruppkategorier',
+        'Föreningsnamn','Familj','Allergier','Cirkusledarutbildning','Cirkusskoleledare','Friluftslivsledarutbildning','Frisksportlöfte','Har frisksportmail',
+        'Hedersmedlem','Ingen tidning tack','Klätterledarutbildning','Frisksportutbildning','Trampolinutbildning','Utmärkelse','Belastningsregisterutdrag OK',
+        'Kontakt 1 förnamn','Kontakt 1 efternamn','Kontakt 1 hemtelefon','Kontakt 1 mobiltelefon','Kontakt 1 arbetstelefon','Kontakt 1 epost']
 
-    print(mc_df)
-    print(io_in_df)
-    print(io_out_df)
+    # IO Import columns - for ref
+    io_out_cols = ['Prova-på','Förnamn','Alt. förnamn','Efternamn','Kön','Nationalitet','IdrottsID','Födelsedat./Personnr.','Telefon mobil',
+        'E-post kontakt','Kontaktadress - c/o adress','Kontaktadress - Gatuadress','Kontaktadress - Postnummer','Kontaktadress - Postort',
+        'Kontaktadress - Land','Arbetsadress - c/o adress','Arbetsadress - Gatuadress','Arbetsadress - Postnummer','Arbetsadress - Postort','Arbetsadress - Land',
+        'Telefon bostad','Telefon arbete','E-post privat','E-post arbete','Medlemsnr.','Medlem sedan','Medlem t.o.m.','Övrig medlemsinfo',
+        'Familj','Fam.Admin','Lägg till GruppID','Ta bort GruppID']
+
+    # 1. Convert all MC members to IO Import format
+    # TODO: IO Export and IO Import labels differ... ex: "Folkbokföring - Gatuadress" vs "Kontaktadress - Gatuadress" ???
+    io_out_df = pd.DataFrame(columns=io_out_cols)
+#    io_out_df['Prova-på'] = mc_df['']  # Not used in MC?
+    io_out_df['Förnamn'] = mc_df['Förnamn']
+#    io_out_df['Alt. förnamn'] = mc_df['']  # Found none in MC
+    io_out_df['Efternamn'] = mc_df['Efternamn']
+    io_out_df['Kön'] = mc_df['Kön (flicka/pojke)']
+    io_out_df['Nationalitet'] = 'Sverige' #mc_df['']
+#    io_out_df['IdrottsID'] = mc_df[''] # TODO? Match with current IO Users
+    io_out_df['Födelsedat./Personnr.'] = mc_df['Personnummer'].astype('string').apply(convert_personnummer) 
+    io_out_df['Telefon mobil'] = mc_df['Mobiltelefon']
+    io_out_df['E-post kontakt'] = mc_df['E-post']
+    io_out_df['Kontaktadress - c/o adress'] = mc_df['c/o']
+    io_out_df['Kontaktadress - Gatuadress'] = mc_df['Adress']
+    io_out_df['Kontaktadress - Postnummer'] = mc_df['Postnummer']
+    io_out_df['Kontaktadress - Postort'] = mc_df['Postort']
+    io_out_df['Kontaktadress - Land'] = mc_df['Land'].replace('SE','Sverige')
+#    io_out_df['Arbetsadress - c/o adress'] = mc_df['']
+#    io_out_df['Arbetsadress - Gatuadress'] = mc_df['']
+#    io_out_df['Arbetsadress - Postnummer'] = mc_df['']
+#    io_out_df['Arbetsadress - Postort'] = mc_df['']
+#    io_out_df['Arbetsadress - Land'] = mc_df['']
+    io_out_df['Telefon bostad'] = mc_df['Hemtelefon']
+    io_out_df['Telefon arbete'] = mc_df['Arbetstelefon']
+    io_out_df['E-post privat'] = mc_df['Kontakt 1 epost']
+#    io_out_df['E-post arbete'] = mc_df['']
+#    io_out_df['Medlemsnr.'] = mc_df['']
+    io_out_df['Medlem sedan'] = mc_df['Datum registrerad']
+#    io_out_df['Medlem t.o.m.'] = mc_df['']
+    io_out_df['Övrig medlemsinfo'] = mc_df['Kommentar']
+    io_out_df['Familj'] = mc_df['Familj']
+#    io_out_df['Fam.Admin'] = mc_df[''] # TODO?
+#    io_out_df['Lägg till GruppID'] = mc_df[''] # TODO
+#    io_out_df['Ta bort GruppID'] = mc_df[''] # TODO
+
+    # 2. Compare MC data with current IO data
+    # Todo
+
+    # 3. Save export
+    # TODO: Still fields left to work with
+    save_file('/usr/src/app/files/mc-converted-tmp.xlsx', io_out_df)
+
+    # 4. Merge test
+    # TODO: Just testing
+    mc_io_merged_df = pd.merge(io_in_df, io_out_df, 
+                     on = 'Födelsedat./Personnr.',
+                     how = 'outer',
+                     suffixes = ('_io','_mc'),
+                     indicator = True)
+
+    save_file('/usr/src/app/files/mc-conv-vs-io-export.xlsx', mc_io_merged_df)
+
+    #print(mc_df)
+    #print(io_in_df)
+    #print(io_out_df)
 
 # Action 
-convert_members('/usr/src/app/files/MyClub_all_member_export.xls','/usr/src/app/files/2020-11-08_all-io-members.xlsx')
+convert_members('/usr/src/app/files/2020-11-09_MyClub_all_member_export.xls','/usr/src/app/files/2020-11-08_all-io-members.xlsx')
 
 #process_files('/usr/src/app/files')
 
