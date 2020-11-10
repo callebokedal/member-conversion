@@ -1,16 +1,17 @@
+# SFK Members
+Scripts to move members from My Club into IdrottOnline
 
-# Idea
+## Tips
 https://pythonspeed.com/articles/base-image-python-docker-images/
 https://hub.docker.com/_/python
 
-## Merging
+### Merging
 https://pandas.pydata.org/pandas-docs/stable/user_guide/merging.html
 
 # Build
 docker build -t python-slim-buster .
 
 # Run single scripts
-# docker run -it --rm --name my-running-script -v "$PWD":/usr/src/myapp -w /usr/src/myapp python-slim-buster python your-daemon-or-script.py
 docker run -it --rm --name my-test-script -v "$PWD":/usr/src/myapp -w /usr/src/myapp python-slim-buster python test.py
 
 docker run -it --rm --name my-test-script -v "$PWD":/usr/src/app -w /usr/src/app python-slim-buster python test.py

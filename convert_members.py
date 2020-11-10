@@ -44,8 +44,7 @@ def merge_dfs(df1, df2, on, dir = 'left'):
 
 def save_file(file_name, df):
     """
-    Save to Excel file.
-    Feature: Personnummer2 is in format string, else scentific output format
+    Save to Excel file
     """
     df.to_excel(file_name, index=False)
     return df
@@ -75,7 +74,7 @@ def process_files(path):
 
 def convert_personnummer(mc_pnr):
     """
-    Convert Personnummer on format "yyyymmddnnnn" -> "yyyymmdd-nnnn". Also takes care of "yyyymmdd"
+    Convert Personnummer of format "yyyymmddnnnn" to "yyyymmdd-nnnn". Also handle case "yyyymmdd"
     """
     if len(mc_pnr) == 12:
         return "{}-{}".format(mc_pnr[0:8],mc_pnr[-4:])
