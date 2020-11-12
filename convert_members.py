@@ -3,7 +3,8 @@ import numpy as np
 import os
 from datetime import date
 
-from utils import convert_countrycode, convert_personnummer, convert_postnr, clean_pii_comments
+from utils import convert_countrycode, convert_personnummer, convert_postnr, \
+    clean_pii_comments, convert_mc_groups_to_io_groups
 
 path = '/usr/src/app/files'
 today = date.today()
@@ -197,7 +198,7 @@ def from_mc_to_io(mc_file_name, io_file_name):
     io_import_df['Övrig medlemsinfo'] = mc_export_df['Kommentar'].astype('string').apply(clean_pii_comments) # Special handling - not for all clubs
     io_import_df['Familj'] = mc_export_df['Familj']
 #    io_import_df['Fam.Admin'] = mc_export_df[''] 
-#    io_import_df['Lägg till GruppID'] = mc_export_df[''] # TODO
+    io_import_df['Lägg till GruppID'] = mc_export_df['Grupper'].apply(convert_mc_groups_to_io_groups) # TODO Append more fields to this ('Frisksportlöfte'-info for ex)
 #    io_import_df['Ta bort GruppID'] = mc_export_df[''] # TODO
 
     # 2. Compare MC data with current IO data

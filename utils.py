@@ -80,7 +80,7 @@ def one_mc_groupto_io(single_group):
     prefix = "MC_"
     g = str(single_group).strip()
     if g == "Trampolin (SACRO)":
-        return prefix + "Sacro"
+        return prefix + "SACRO"
     elif g == "Orientering":
         return prefix + "OL"
     elif g == "Fotboll":
