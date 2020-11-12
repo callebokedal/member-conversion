@@ -1,4 +1,5 @@
 import pandas as pd
+from datetime import date
 
 from utils import convert_countrycode, convert_personnummer, convert_postnr, \
     clean_pii_comments, convert_mc_groups_to_io_groups, one_mc_groupto_io
@@ -42,3 +43,10 @@ assert (convert_mc_groups_to_io_groups("Orientering, Medlemmar, Senior") == "MC_
 print(convert_mc_groups_to_io_groups("styrelsen, Medlemmar"))
 assert (convert_mc_groups_to_io_groups("styrelsen, Medlemmar") == "Styrelse SFK, MC_Medlemmar")
 assert (convert_mc_groups_to_io_groups("Huvudsektion,styrelsen, Medlemmar") == "MC_Huvudsektion, Styrelse SFK, MC_Medlemmar")
+
+# Dates
+
+today = date.today()
+today = date.fromisoformat("2020-03-01")
+date_today = today.strftime("%Y-%m-%d")
+print(date_today)

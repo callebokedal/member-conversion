@@ -1,10 +1,13 @@
 import pandas as pd
 import numpy as np
 import os
+from datetime import date
 
 from utils import convert_countrycode, convert_personnummer, convert_postnr, clean_pii_comments
 
 path = '/usr/src/app/files'
+today = date.today()
+date_today = today.strftime("%Y-%m-%d")
 
 def list_all_files(path):
     """
@@ -187,9 +190,9 @@ def from_mc_to_io(mc_file_name, io_file_name):
     io_import_df['Telefon arbete'] = mc_export_df['Arbetstelefon']
 #    io_import_df['E-post privat'] = mc_export_df['Kontakt 1 epost']
 #    io_import_df['E-post arbete'] = mc_export_df['']
-#    io_import_df['Medlemsnr.'] = mc_export_df['']
+    io_import_df['Medlemsnr.'] = mc_export_df['MedlemsID']
     io_import_df['Medlem sedan'] = mc_export_df['Datum registrerad']
-    io_import_df['MC_Senast ändrad'] = mc_export_df['Datum registrerad']
+    io_import_df['MC_Senast ändrad'] = mc_export_df['Senast ändrad']
 #    io_import_df['Medlem t.o.m.'] = mc_export_df['']
     io_import_df['Övrig medlemsinfo'] = mc_export_df['Kommentar'].astype('string').apply(clean_pii_comments) # Special handling - not for all clubs
     io_import_df['Familj'] = mc_export_df['Familj']
@@ -202,17 +205,17 @@ def from_mc_to_io(mc_file_name, io_file_name):
 
     # 3. Save export
     # TODO: Still fields left to work with
-    save_file('/usr/src/app/files/mc-converted-for-import.xlsx', io_import_df)
+    save_file('/usr/src/app/files/' + date_today + '_mc-converted-for-import.xlsx', io_import_df)
 
     # 4. Merge test
     # TODO: Just testing
     mc_io_merged_df = pd.merge(io_current_df, io_import_df, 
                      on = 'Födelsedat./Personnr.',
-                     how = 'outer',
+                     how = 'inner',
                      suffixes = ('_io','_mc'),
                      indicator = True)
 
-    save_file('/usr/src/app/files/mc-conv-vs-io-export.xlsx', mc_io_merged_df)
+    save_file('/usr/src/app/files/' + date_today + '_mc-converted-vs-io-current.xlsx', mc_io_merged_df)
 
     #print(mc_export_df)
     #print(io_current_df)
@@ -261,4 +264,4 @@ from_mc_to_io('/usr/src/app/files/2020-11-11_MyClub_all_member_export.xls','/usr
 
 #process_files('/usr/src/app/files')
 
-print("done handle_members.py")
+print("Done convert_members.py")
