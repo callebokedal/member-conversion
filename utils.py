@@ -105,3 +105,9 @@ def one_mc_groupto_io(single_group):
         return prefix + "Skidor"
     else:
         return prefix + g
+
+def simple_lower(x):
+    """
+    Convert to lower, if string
+    """
+    return lambda x: x if type(x)!=str else x.lower()

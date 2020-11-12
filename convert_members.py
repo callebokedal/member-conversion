@@ -5,7 +5,7 @@ from datetime import date
 import time 
 
 from utils import convert_countrycode, convert_personnummer, convert_postnr, \
-    clean_pii_comments, convert_mc_groups_to_io_groups
+    clean_pii_comments, convert_mc_groups_to_io_groups, simple_lower
 
 path = '/usr/src/app/files'
 today = date.today()
@@ -88,16 +88,17 @@ def from_mc_to_io(mc_file_name, io_file_name):
     # My Club Dataframe
     mc_export_df = read_file(mc_file_name)
     # Normalize fields
-    mc_export_df['E-post'] = mc_export_df['E-post'].map(lambda x: x if type(x)!=str else x.lower()) # .astype('string').apply(lambda x:x.lower())
-    mc_export_df['Kontakt 1 epost'] = mc_export_df['Kontakt 1 epost'].map(lambda x: x if type(x)!=str else x.lower())
+    mc_export_df['E-post'] = mc_export_df['E-post'].map(simple_lower) # .astype('string').apply(lambda x:x.lower())
+    mc_export_df['Kontakt 1 epost'] = mc_export_df['Kontakt 1 epost'].map(simple_lower)
+
     mc_export_df['Postort'] = mc_export_df['Postort'].map(lambda x: x if type(x)!=str else x.title())
     mc_export_df['Postnummer'] = mc_export_df['Postnummer'].apply(convert_postnr)
 
     io_current_df = read_file(io_file_name)
     # Normalize fields
-    io_current_df['E-post kontakt'] = io_current_df['E-post kontakt'].map(lambda x: x if type(x)!=str else x.lower())
-    io_current_df['E-post privat'] = io_current_df['E-post privat'].map(lambda x: x if type(x)!=str else x.lower())
-    io_current_df['E-post arbete'] = io_current_df['E-post arbete'].map(lambda x: x if type(x)!=str else x.lower())
+    io_current_df['E-post kontakt'] = io_current_df['E-post kontakt'].map(simple_lower)
+    io_current_df['E-post privat'] = io_current_df['E-post privat'].map(simple_lower)
+    io_current_df['E-post arbete'] = io_current_df['E-post arbete'].map(simple_lower)
 
     # My Club output columns - for ref
     # Note! It seems like My Club uses different names on import vs export!
