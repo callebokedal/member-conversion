@@ -78,24 +78,24 @@ def from_mc_to_io(mc_file_name, io_file_name):
     Takes a My Club All members file and converts to IdrottOnline Import Excel
     """
     # My Club Dataframe
-    mc_df = read_file(mc_file_name)
+    mc_export_df = read_file(mc_file_name)
     # Normalize fields
-    mc_df['E-post'] = mc_df['E-post'].map(lambda x: x if type(x)!=str else x.lower()) # .astype('string').apply(lambda x:x.lower())
-    mc_df['Kontakt 1 epost'] = mc_df['Kontakt 1 epost'].map(lambda x: x if type(x)!=str else x.lower())
-    mc_df['Postort'] = mc_df['Postort'].map(lambda x: x if type(x)!=str else x.title())
-    mc_df['Postnummer'] = mc_df['Postnummer'].apply(convert_postnr)
+    mc_export_df['E-post'] = mc_export_df['E-post'].map(lambda x: x if type(x)!=str else x.lower()) # .astype('string').apply(lambda x:x.lower())
+    mc_export_df['Kontakt 1 epost'] = mc_export_df['Kontakt 1 epost'].map(lambda x: x if type(x)!=str else x.lower())
+    mc_export_df['Postort'] = mc_export_df['Postort'].map(lambda x: x if type(x)!=str else x.title())
+    mc_export_df['Postnummer'] = mc_export_df['Postnummer'].apply(convert_postnr)
 
-    io_in_df = read_file(io_file_name)
+    io_current_df = read_file(io_file_name)
     # Normalize fields
-    io_in_df['E-post kontakt'] = io_in_df['E-post kontakt'].map(lambda x: x if type(x)!=str else x.lower())
-    io_in_df['E-post privat'] = io_in_df['E-post privat'].map(lambda x: x if type(x)!=str else x.lower())
-    io_in_df['E-post arbete'] = io_in_df['E-post arbete'].map(lambda x: x if type(x)!=str else x.lower())
+    io_current_df['E-post kontakt'] = io_current_df['E-post kontakt'].map(lambda x: x if type(x)!=str else x.lower())
+    io_current_df['E-post privat'] = io_current_df['E-post privat'].map(lambda x: x if type(x)!=str else x.lower())
+    io_current_df['E-post arbete'] = io_current_df['E-post arbete'].map(lambda x: x if type(x)!=str else x.lower())
 
     # My Club output columns - for ref
     # Note! It seems like My Club uses different names on import vs export!
     # According to export:          'Kontakt 1 förnamn'
     # According to import template: 'Förnamn kontaktperson1'
-    mc_df_cols = ['Förnamn',
+    mc_export_df_cols = ['Förnamn',
         'Efternamn',
         'För- och efternamn',
         'Personnummer',
@@ -154,7 +154,7 @@ def from_mc_to_io(mc_file_name, io_file_name):
         'Kontakt 1 epost']
 
     # IO Import columns - for ref
-    io_out_cols = ['Prova-på','Förnamn','Alt. förnamn','Efternamn','Kön','Nationalitet','IdrottsID','Födelsedat./Personnr.','Telefon mobil',
+    io_import_cols = ['Prova-på','Förnamn','Alt. förnamn','Efternamn','Kön','Nationalitet','IdrottsID','Födelsedat./Personnr.','Telefon mobil',
         'E-post kontakt','Kontaktadress - c/o adress','Kontaktadress - Gatuadress','Kontaktadress - Postnummer','Kontaktadress - Postort',
         'Kontaktadress - Land','Arbetsadress - c/o adress','Arbetsadress - Gatuadress','Arbetsadress - Postnummer','Arbetsadress - Postort','Arbetsadress - Land',
         'Telefon bostad','Telefon arbete','E-post privat','E-post arbete','Medlemsnr.','Medlem sedan','Medlem t.o.m.','Övrig medlemsinfo',
@@ -162,51 +162,51 @@ def from_mc_to_io(mc_file_name, io_file_name):
 
     # 1. Convert all MC members to IO Import format
     # TODO: IO Export and IO Import labels differ... ex: "Folkbokföring - Gatuadress" vs "Kontaktadress - Gatuadress" ???
-    io_out_df = pd.DataFrame(columns=io_out_cols)
-#    io_out_df['Prova-på'] = mc_df['']  # Not used in MC?
-    io_out_df['Förnamn'] = mc_df['Förnamn']
-#    io_out_df['Alt. förnamn'] = mc_df['']  # Found none in MC
-    io_out_df['Efternamn'] = mc_df['Efternamn']
-    io_out_df['Kön'] = mc_df['Kön (flicka/pojke)']
-    io_out_df['Nationalitet'] = mc_df['Nationalitet'].replace('SE','Sverige')
-#    io_out_df['IdrottsID'] = mc_df[''] 
-    io_out_df['Födelsedat./Personnr.'] = mc_df['Personnummer'].astype('string').apply(convert_personnummer) 
-    io_out_df['Telefon mobil'] = mc_df['Mobiltelefon']
-    io_out_df['E-post kontakt'] = mc_df['E-post'] 
-    io_out_df['Kontaktadress - c/o adress'] = mc_df['c/o']
-    io_out_df['Kontaktadress - Gatuadress'] = mc_df['Adress']
-    io_out_df['Kontaktadress - Postnummer'] = mc_df['Postnummer'].astype('string').apply(convert_postnr)
-    io_out_df['Kontaktadress - Postort'] = mc_df['Postort']
-    io_out_df['Kontaktadress - Land'] = mc_df['Land'].apply(convert_countrycode)
-#    io_out_df['Arbetsadress - c/o adress'] = mc_df['']
-#    io_out_df['Arbetsadress - Gatuadress'] = mc_df['']
-#    io_out_df['Arbetsadress - Postnummer'] = mc_df['']
-#    io_out_df['Arbetsadress - Postort'] = mc_df['']
-#    io_out_df['Arbetsadress - Land'] = mc_df['']
-    io_out_df['Telefon bostad'] = mc_df['Hemtelefon']
-    io_out_df['Telefon arbete'] = mc_df['Arbetstelefon']
-#    io_out_df['E-post privat'] = mc_df['Kontakt 1 epost']
-#    io_out_df['E-post arbete'] = mc_df['']
-#    io_out_df['Medlemsnr.'] = mc_df['']
-    io_out_df['Medlem sedan'] = mc_df['Datum registrerad']
-    io_out_df['MC_Senast ändrad'] = mc_df['Datum registrerad']
-#    io_out_df['Medlem t.o.m.'] = mc_df['']
-    io_out_df['Övrig medlemsinfo'] = mc_df['Kommentar'].astype('string').apply(clean_pii_comments) # Special handling - not for all clubs
-    io_out_df['Familj'] = mc_df['Familj']
-#    io_out_df['Fam.Admin'] = mc_df[''] 
-#    io_out_df['Lägg till GruppID'] = mc_df[''] # TODO
-#    io_out_df['Ta bort GruppID'] = mc_df[''] # TODO
+    io_import_df = pd.DataFrame(columns=io_import_cols)
+#    io_import_df['Prova-på'] = mc_export_df['']  # Not used in MC?
+    io_import_df['Förnamn'] = mc_export_df['Förnamn']
+#    io_import_df['Alt. förnamn'] = mc_export_df['']  # Found none in MC
+    io_import_df['Efternamn'] = mc_export_df['Efternamn']
+    io_import_df['Kön'] = mc_export_df['Kön (flicka/pojke)']
+    io_import_df['Nationalitet'] = mc_export_df['Nationalitet'].replace('SE','Sverige')
+#    io_import_df['IdrottsID'] = mc_export_df[''] 
+    io_import_df['Födelsedat./Personnr.'] = mc_export_df['Personnummer'].astype('string').apply(convert_personnummer) 
+    io_import_df['Telefon mobil'] = mc_export_df['Mobiltelefon']
+    io_import_df['E-post kontakt'] = mc_export_df['E-post'] 
+    io_import_df['Kontaktadress - c/o adress'] = mc_export_df['c/o']
+    io_import_df['Kontaktadress - Gatuadress'] = mc_export_df['Adress']
+    io_import_df['Kontaktadress - Postnummer'] = mc_export_df['Postnummer'].astype('string').apply(convert_postnr)
+    io_import_df['Kontaktadress - Postort'] = mc_export_df['Postort']
+    io_import_df['Kontaktadress - Land'] = mc_export_df['Land'].apply(convert_countrycode)
+#    io_import_df['Arbetsadress - c/o adress'] = mc_export_df['']
+#    io_import_df['Arbetsadress - Gatuadress'] = mc_export_df['']
+#    io_import_df['Arbetsadress - Postnummer'] = mc_export_df['']
+#    io_import_df['Arbetsadress - Postort'] = mc_export_df['']
+#    io_import_df['Arbetsadress - Land'] = mc_export_df['']
+    io_import_df['Telefon bostad'] = mc_export_df['Hemtelefon']
+    io_import_df['Telefon arbete'] = mc_export_df['Arbetstelefon']
+#    io_import_df['E-post privat'] = mc_export_df['Kontakt 1 epost']
+#    io_import_df['E-post arbete'] = mc_export_df['']
+#    io_import_df['Medlemsnr.'] = mc_export_df['']
+    io_import_df['Medlem sedan'] = mc_export_df['Datum registrerad']
+    io_import_df['MC_Senast ändrad'] = mc_export_df['Datum registrerad']
+#    io_import_df['Medlem t.o.m.'] = mc_export_df['']
+    io_import_df['Övrig medlemsinfo'] = mc_export_df['Kommentar'].astype('string').apply(clean_pii_comments) # Special handling - not for all clubs
+    io_import_df['Familj'] = mc_export_df['Familj']
+#    io_import_df['Fam.Admin'] = mc_export_df[''] 
+#    io_import_df['Lägg till GruppID'] = mc_export_df[''] # TODO
+#    io_import_df['Ta bort GruppID'] = mc_export_df[''] # TODO
 
     # 2. Compare MC data with current IO data
     # Todo
 
     # 3. Save export
     # TODO: Still fields left to work with
-    save_file('/usr/src/app/files/mc-converted-for-import.xlsx', io_out_df)
+    save_file('/usr/src/app/files/mc-converted-for-import.xlsx', io_import_df)
 
     # 4. Merge test
     # TODO: Just testing
-    mc_io_merged_df = pd.merge(io_in_df, io_out_df, 
+    mc_io_merged_df = pd.merge(io_current_df, io_import_df, 
                      on = 'Födelsedat./Personnr.',
                      how = 'outer',
                      suffixes = ('_io','_mc'),
@@ -214,9 +214,9 @@ def from_mc_to_io(mc_file_name, io_file_name):
 
     save_file('/usr/src/app/files/mc-conv-vs-io-export.xlsx', mc_io_merged_df)
 
-    #print(mc_df)
-    #print(io_in_df)
-    #print(io_out_df)
+    #print(mc_export_df)
+    #print(io_current_df)
+    #print(io_import_df)
 
 
 def from_io_to_mc(io_file_name, mc_file_name):

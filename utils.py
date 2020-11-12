@@ -1,5 +1,7 @@
 # Utility functions
 import re
+import pandas as pd
+import numpy as np
 
 def convert_personnummer(mc_pnr):
     """
@@ -43,6 +45,10 @@ def clean_pii_comments(text):
     """
     starting_pii_1 = r"^\d{4} " # Case: "nnnn other text"
     starting_pii_2 = r"^-\d{4}" # Case: "-nnnn other text"
+
+    if type(text) == type(pd.NA):
+        return text
+
     if text.startswith("20"):
         # Ok - validated manually
         return text
