@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 from datetime import date
+import time 
 
 from utils import convert_countrycode, convert_personnummer, convert_postnr, \
     clean_pii_comments, convert_mc_groups_to_io_groups
@@ -9,6 +10,9 @@ from utils import convert_countrycode, convert_personnummer, convert_postnr, \
 path = '/usr/src/app/files'
 today = date.today()
 date_today = today.strftime("%Y-%m-%d")
+
+start_time = time.time()
+
 
 def list_all_files(path):
     """
@@ -266,3 +270,4 @@ from_mc_to_io('/usr/src/app/files/2020-11-11_MyClub_all_member_export.xls','/usr
 #process_files('/usr/src/app/files')
 
 print("Done convert_members.py")
+print ("Time elapsed: " + str(round((time.time() - start_time),1)) + " s")

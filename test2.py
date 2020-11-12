@@ -1,5 +1,8 @@
 import pandas as pd
 from datetime import date
+import time 
+
+start_time = time.time()
 
 from utils import convert_countrycode, convert_personnummer, convert_postnr, \
     clean_pii_comments, convert_mc_groups_to_io_groups, one_mc_groupto_io
@@ -50,3 +53,7 @@ today = date.today()
 today = date.fromisoformat("2020-03-01")
 date_today = today.strftime("%Y-%m-%d")
 print(date_today)
+
+
+print(time.time())
+print ("Time elapsed: " + str(round((time.time() - start_time),1)))
