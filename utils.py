@@ -54,3 +54,48 @@ def clean_pii_comments(text):
         return text[5:].lstrip()
     else:
         return text
+
+def convert_mc_groups_to_io_groups(groups_str):
+    """
+    Convert Groups in MC to group to use in IO - always with prefix "MC_"
+    """
+    # Split on ,
+    result = ""
+    for grp in groups_str.split(','):
+        result += ", " + one_mc_groupto_io(grp)
+    if result.startswith(", "):
+        result = result[2:]
+    return result
+
+def one_mc_groupto_io(single_group):
+    """
+    Convert one singel group from MC to IO
+    """
+    prefix = "MC_"
+    g = str(single_group).strip()
+    if g == "Trampolin (SACRO)":
+        return prefix + "Sacro"
+    elif g == "Orientering":
+        return prefix + "OL"
+    elif g == "Fotboll":
+        return prefix + "Fotboll"
+    elif g == "Volleyboll":
+        return prefix + "Volleyboll"
+    elif g == "Skateboard (Chillskate)":
+        return prefix + "Skate"
+    elif g == "Medlemmar":
+        return prefix + "Medlemmar"
+    elif g == "MTB":
+        return prefix + "MTB"
+    elif g.lower() == "styrelsen":
+        return "Styrelse SFK"
+    elif g == "Huvudsektion":
+        return prefix + "Huvudsektion"
+    elif g == "Senior":
+        return "Senior"
+    elif g == "Innebandy":
+        return prefix + "Innebandy"
+    elif g == "Skidor":
+        return prefix + "Skidor"
+    else:
+        return prefix + g

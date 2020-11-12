@@ -1,6 +1,7 @@
 import pandas as pd
 
-from utils import convert_countrycode, convert_personnummer, convert_postnr, clean_pii_comments
+from utils import convert_countrycode, convert_personnummer, convert_postnr, \
+    clean_pii_comments, convert_mc_groups_to_io_groups, one_mc_groupto_io
 
 data = {'Fruits': ['BANANA','APPLE','','WATERMELON','PEAR'],
         'Fruits2': ['BANANA','APPLE','MANGO','WATERMELON','PEAR'],
@@ -31,4 +32,13 @@ assert (clean_pii_comments("-1234Test4") == "Test4")
 assert (clean_pii_comments("2013 Test5") == "2013 Test5")
 assert (clean_pii_comments("-123s4Test6") == "-123s4Test6")
 assert (clean_pii_comments("123s4Test7") == "123s4Test7")
+assert (clean_pii_comments("-7134se Johan") == "se Johan")
 assert (clean_pii_comments("") == "")
+
+# Test group handling
+print(convert_mc_groups_to_io_groups("Orientering, Medlemmar"))
+assert (convert_mc_groups_to_io_groups("Orientering, Medlemmar") == "MC_OL, MC_Medlemmar")
+assert (convert_mc_groups_to_io_groups("Orientering, Medlemmar, Senior") == "MC_OL, MC_Medlemmar, Senior")
+print(convert_mc_groups_to_io_groups("styrelsen, Medlemmar"))
+assert (convert_mc_groups_to_io_groups("styrelsen, Medlemmar") == "Styrelse SFK, MC_Medlemmar")
+assert (convert_mc_groups_to_io_groups("Huvudsektion,styrelsen, Medlemmar") == "MC_Huvudsektion, Styrelse SFK, MC_Medlemmar")

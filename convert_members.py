@@ -193,7 +193,7 @@ def from_mc_to_io(mc_file_name, io_file_name):
 #    io_out_df['Medlem t.o.m.'] = mc_df['']
     io_out_df['Övrig medlemsinfo'] = mc_df['Kommentar'].astype('string').apply(clean_pii_comments) # Special handling - not for all clubs
     io_out_df['Familj'] = mc_df['Familj']
-    io_out_df['Fam.Admin'] = mc_df[''] 
+#    io_out_df['Fam.Admin'] = mc_df[''] 
 #    io_out_df['Lägg till GruppID'] = mc_df[''] # TODO
 #    io_out_df['Ta bort GruppID'] = mc_df[''] # TODO
 
