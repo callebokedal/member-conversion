@@ -99,19 +99,28 @@ def concat_special_cols_old(groups, cirkusutb, frisksportlofte, hedersmedlem, in
     #if cirkusutb
     pass
 
-def from_mc_to_io(mc_file_name, io_file_name):
+def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     """
     Takes a My Club All members file and converts to IdrottOnline Import Excel
     """
     # My Club Dataframe
     mc_export_df = read_file(mc_file_name)
     # Normalize fields
-    mc_export_df['E-post'] = mc_export_df['E-post'].apply(simple_lower) # .astype('string').apply(lambda x:x.lower())
+    mc_export_df['E-post'] = mc_export_df['E-post'].apply(simple_lower) 
     mc_export_df['Kontakt 1 epost'] = mc_export_df['Kontakt 1 epost'].apply(simple_lower)
-
     mc_export_df['Postort'] = mc_export_df['Postort'].map(lambda x: x if type(x)!=str else x.title())
     mc_export_df['Postnummer'] = mc_export_df['Postnummer'].apply(convert_postnr)
 
+    # Invoice info from My Club
+    mc_invoice_df = pd.read_excel(mc_invoice_file, 
+        usecols=['MedlemsID','Avgift','Summa','Summa betalt',
+            'Familjemedlem 1','Familjemedlem 2','Familjemedlem 3','Familjemedlem 4','Familjemedlem 5','Familjemedlem 6'])
+    # Merge in invoice details
+    mc_export_df = mc_export_df.merge(mc_invoice_df, on='MedlemsID', how='left', suffixes=(None,'_inv'))
+    #mc_export_df = mc_export_df.merge(mc_invoice_df[['MedlemsID','Avgift']], on='MedlemsID', how='left', suffixes=(None,'_inv'))
+    #print(mc_export_df)
+
+    # Current members in IdrottOnline
     io_current_df = read_file(io_file_name)
     # Normalize fields
     io_current_df['E-post kontakt'] = io_current_df['E-post kontakt'].apply(simple_lower)
@@ -293,7 +302,9 @@ def from_io_to_mc(io_file_name, mc_file_name):
 
 # Action 
 # convert_members(mc_file_name, io_file_name):
-from_mc_to_io('/usr/src/app/files/2020-11-11_MyClub_all_member_export.xls','/usr/src/app/files/2020-11-11_all-io-members2.xlsx')
+from_mc_to_io('/usr/src/app/files/2020-11-11_MyClub_all_member_export.xls',
+    '/usr/src/app/files/2020-11-13_MyClub_invoice_export.xls',
+    '/usr/src/app/files/2020-11-11_all-io-members2.xlsx')
 
 #process_files('/usr/src/app/files')
 
