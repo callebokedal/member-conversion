@@ -2,6 +2,7 @@ my-club
 io
 files
 docs
+handle_s.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
