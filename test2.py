@@ -4,6 +4,7 @@ import time
 
 start_time = time.time()
 
+
 from utils import convert_countrycode, convert_personnummer, convert_postnr, \
     clean_pii_comments, convert_mc_groups_to_io_groups, one_mc_groupto_io
 
@@ -57,3 +58,29 @@ print(date_today)
 
 print(time.time())
 print ("Time elapsed: " + str(round((time.time() - start_time),1)))
+
+print("-----------------", end = "\n\n")
+
+# Lists
+r = ['']
+r1 = ['a','c','d','b']
+s = "a, f,g,h"
+r2 = s.split(",")
+r3 = [ str.strip(x) + "." for x in r2 ]
+
+groups = "MC_1,                  MC_2, X" 
+#groups = ""
+result = [ str.strip(grp) for grp in groups.split(",") ]
+print(result)
+
+print(r1)
+r1.sort()
+print(r1)
+print(r2)
+print(r3)
+
+list1 = ['physics', 'Biology', 'chemistry', 'maths']
+list1.sort()
+print ("list now : ", list1)
+
+#r2 = 

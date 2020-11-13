@@ -110,4 +110,34 @@ def simple_lower(x):
     """
     Convert to lower, if string
     """
-    return lambda x: x if type(x)!=str else x.lower()
+    return x if type(x)!=str else x.lower()
+
+def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb):
+    """
+    Concatinate special columns into one, comma-separated list of strings
+    """
+    #print("hej")
+    result = [ str.strip(grp) for grp in groups.split(",") ]
+    if cirkusutb == "Ja":
+        result.append("MC_Cirkusledarutbildning")
+    if frisksportlofte == "Ja":
+        result.append("MC_FrisksportlöfteJa")
+    if frisksportlofte == "Nej":
+        result.append("MC_FrisksportlöfteNej")
+    if hedersmedlem == "Ja":
+        result.append("MC_Hedersmedlem")
+    if ingen_tidning == "Ja":
+        result.append("MC_IngenTidning")
+    if frisksportutb == "Frisksport Basic (grundledarutbildning)":
+        result.append("MC_FrisksportutbildningBasic")
+    if frisksportutb == "Ledarutbildning steg 1":
+        result.append("MC_FrisksportutbildningSteg1")
+    if trampolinutb == "Steg 1":
+        result.append("MC_TrampolinutbildningSteg1")
+    if trampolinutb == "Steg 2":
+        result.append("MC_TrampolinutbildningSteg2")
+    result.sort()
+    if len(result) > 0:
+        return ", ".join(result)
+    else:
+        return ""

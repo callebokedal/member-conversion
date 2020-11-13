@@ -5,7 +5,7 @@ from datetime import date
 import time 
 
 from utils import convert_countrycode, convert_personnummer, convert_postnr, \
-    clean_pii_comments, convert_mc_groups_to_io_groups, simple_lower
+    clean_pii_comments, convert_mc_groups_to_io_groups, simple_lower, concat_special_cols
 
 path = '/usr/src/app/files'
 today = date.today()
@@ -29,7 +29,7 @@ def read_file(file_name):
     """
     df = pd.read_excel(file_name, dtype = {
         'Hemtelefon': object, 'Mobiltelefon': object, 'Arbetstelefon': object, # My Club columns
-        'Telefon mobil': object, 'Telefon bostad': object, 'Telefon arbete': object, 'Telefon mobil': object, 'Medlemsnr.': object}) # IO columns
+        'Telefon mobil': object, 'Telefon bostad': object, 'Telefon arbete': object, 'Medlemsnr.': object}) # IO columns
     return df
 
 def read_id_file(file_name):
@@ -81,6 +81,24 @@ def process_files(path):
                 save_file(path + "/" + name.replace('-excel.txt','-merged.xlsx'), merged_df)
     it.close()
 
+def try_concat(x, y, z):
+    try:
+        return str(x) + ' is ' + y
+    except (ValueError, TypeError):
+        return np.nan
+
+#df = pd.DataFrame({'foo':['a','b','c'], 'bar':[1, 2, 3], 'hoho':[1, 2, 3]})
+#df['foo'] = [try_concat(x, y, z) for x, y, z in zip(df['bar'], df['foo'], df['hoho'])]
+
+def concat_special_cols_old(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb):
+    """
+    Concatinate special columns into one, comma-separated list of strings
+    """
+    #if len(groups) > 0:
+    #    groups = groups + ", "
+    #if cirkusutb
+    pass
+
 def from_mc_to_io(mc_file_name, io_file_name):
     """
     Takes a My Club All members file and converts to IdrottOnline Import Excel
@@ -88,17 +106,17 @@ def from_mc_to_io(mc_file_name, io_file_name):
     # My Club Dataframe
     mc_export_df = read_file(mc_file_name)
     # Normalize fields
-    mc_export_df['E-post'] = mc_export_df['E-post'].map(simple_lower) # .astype('string').apply(lambda x:x.lower())
-    mc_export_df['Kontakt 1 epost'] = mc_export_df['Kontakt 1 epost'].map(simple_lower)
+    mc_export_df['E-post'] = mc_export_df['E-post'].apply(simple_lower) # .astype('string').apply(lambda x:x.lower())
+    mc_export_df['Kontakt 1 epost'] = mc_export_df['Kontakt 1 epost'].apply(simple_lower)
 
     mc_export_df['Postort'] = mc_export_df['Postort'].map(lambda x: x if type(x)!=str else x.title())
     mc_export_df['Postnummer'] = mc_export_df['Postnummer'].apply(convert_postnr)
 
     io_current_df = read_file(io_file_name)
     # Normalize fields
-    io_current_df['E-post kontakt'] = io_current_df['E-post kontakt'].map(simple_lower)
-    io_current_df['E-post privat'] = io_current_df['E-post privat'].map(simple_lower)
-    io_current_df['E-post arbete'] = io_current_df['E-post arbete'].map(simple_lower)
+    io_current_df['E-post kontakt'] = io_current_df['E-post kontakt'].apply(simple_lower)
+    io_current_df['E-post privat'] = io_current_df['E-post privat'].apply(simple_lower)
+    io_current_df['E-post arbete'] = io_current_df['E-post arbete'].apply(simple_lower)
 
     # My Club output columns - for ref
     # Note! It seems like My Club uses different names on import vs export!
@@ -204,6 +222,15 @@ def from_mc_to_io(mc_file_name, io_file_name):
     io_import_df['Familj'] = mc_export_df['Familj']
 #    io_import_df['Fam.Admin'] = mc_export_df[''] 
     io_import_df['Lägg till GruppID'] = mc_export_df['Grupper'].apply(convert_mc_groups_to_io_groups) # TODO Append more fields to this ('Frisksportlöfte'-info for ex)
+    # Also - add special columns as groups
+    #df_test 
+    io_import_df['Lägg till GruppID'] = [concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb) 
+        for groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb 
+        in zip(io_import_df['Lägg till GruppID'], mc_export_df['Cirkusledarutbildning'], mc_export_df['Frisksportlöfte'], mc_export_df['Hedersmedlem'], mc_export_df['Ingen tidning tack'], mc_export_df['Frisksportutbildning'], mc_export_df['Trampolinutbildning'])]
+    #print("df_test: ")
+    #print(io_import_df['Lägg till GruppID'])
+    #print(df_test)
+
 #    io_import_df['Ta bort GruppID'] = mc_export_df[''] # TODO
 
     # 2. Compare MC data with current IO data
