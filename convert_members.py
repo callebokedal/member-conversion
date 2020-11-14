@@ -30,8 +30,6 @@ def validate_file(file_name, nr):
         sys.exit("Illegal file (" + str(int(nr)) + ")")
 
     fpath = Path(file_name).resolve()
-    print(path)
-    print(fpath)
     if not str(fpath).startswith(path):
         sys.exit("Illegal file path (" + str(int(nr)) + ")")
 
