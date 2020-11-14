@@ -77,34 +77,33 @@ def one_mc_groupto_io(single_group):
     """
     Convert one singel group from MC to IO
     """
-    prefix = "MC_"
-    g = str(single_group).strip()
+    g = str(single_group).strip()    
     if g == "Trampolin (SACRO)":
-        return prefix + "SACRO"
+        return "579036" # MC_SACRO
     elif g == "Orientering":
-        return prefix + "OL"
+        return "579037" # MC_OL
     elif g == "Fotboll":
-        return prefix + "Fotboll"
+        return "579038" # MC_Fotboll
     elif g == "Volleyboll":
-        return prefix + "Volleyboll"
+        return "579040" # MC_Volleyboll
     elif g == "Skateboard (Chillskate)":
-        return prefix + "Skate"
+        return "579039" # MC_Skate
     elif g == "Medlemmar":
-        return prefix + "Medlemmar"
+        return "579396" # MC_Medlemmar TODO: Behövs denna?
     elif g == "MTB":
-        return prefix + "MTB"
+        return "579397" # MC_MTB
     elif g.lower() == "styrelsen":
-        return "Styrelse SFK"
+        return "578806" # Styrelse SFK
     elif g == "Huvudsektion":
-        return prefix + "Huvudsektion"
+        return "579041" # MC_Huvudsektion
     elif g == "Senior":
-        return "Senior"
+        return "579045" # Senior
     elif g == "Innebandy":
-        return prefix + "Innebandy"
+        return "579399" # MC_Innebandy
     elif g == "Skidor":
-        return prefix + "Skidor"
+        return "579398" # MC_Skidor
     else:
-        return prefix + g
+        return g
 
 def simple_lower(x):
     """
