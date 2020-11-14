@@ -262,7 +262,7 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
                      how = 'outer',
                      suffixes = ('_io','_mc'),
                      indicator = True)
-    stats("Antal sammanfogade: " + str(len(mc_io_merged_df)) + " (" + str(date_today) + "_mc-converted-vs-io-current.xlsx)")
+    stats("Antal sammanfogade:   " + str(len(mc_io_merged_df)) + " (" + str(date_today) + "_mc-converted-vs-io-current.xlsx)")
     #stats("Finns i båda: ") + mc_io_merged_df.groupby("_merge"))
     merge_grouped = mc_io_merged_df.groupby(['_merge'])
     #print(mc_io_merged_df.filter(items=['_merge']))
@@ -315,11 +315,12 @@ def from_io_to_mc(io_file_name, mc_file_name):
 
 # Action 
 # convert_members(mc_file_name, io_file_name):
+print(" Start ".center(80, "-"))
 from_mc_to_io('/usr/src/app/files/2020-11-11_MyClub_all_member_export.xls',
     '/usr/src/app/files/2020-11-13_MyClub_invoice_export.xls',
     '/usr/src/app/files/2020-11-11_all-io-members2.xlsx')
 
 #process_files('/usr/src/app/files')
 
-print("Done convert_members.py")
 print ("Time elapsed: " + str(round((time.time() - start_time),1)) + " s")
+print(" Done ".center(80, "-"))
