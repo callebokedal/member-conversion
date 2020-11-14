@@ -28,8 +28,8 @@ def read_file(file_name):
     Read and return Excel file as df
     """
     df = pd.read_excel(file_name, dtype = {
-        'Hemtelefon': object, 'Mobiltelefon': object, 'Arbetstelefon': object, # My Club columns
-        'Telefon mobil': object, 'Telefon bostad': object, 'Telefon arbete': object, 'Medlemsnr.': object}) # IO columns
+        'Hemtelefon': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', # My Club columns
+        'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': object, 'Medlemsnr.': 'string'}) # IO columns
     return df
 
 def read_id_file(file_name):
@@ -81,24 +81,6 @@ def process_files(path):
                 save_file(path + "/" + name.replace('-excel.txt','-merged.xlsx'), merged_df)
     it.close()
 
-def try_concat(x, y, z):
-    try:
-        return str(x) + ' is ' + y
-    except (ValueError, TypeError):
-        return np.nan
-
-#df = pd.DataFrame({'foo':['a','b','c'], 'bar':[1, 2, 3], 'hoho':[1, 2, 3]})
-#df['foo'] = [try_concat(x, y, z) for x, y, z in zip(df['bar'], df['foo'], df['hoho'])]
-
-def concat_special_cols_old(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb):
-    """
-    Concatinate special columns into one, comma-separated list of strings
-    """
-    #if len(groups) > 0:
-    #    groups = groups + ", "
-    #if cirkusutb
-    pass
-
 def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     """
     Takes a My Club All members file and converts to IdrottOnline Import Excel
@@ -116,9 +98,10 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
         usecols=['MedlemsID','Avgift','Summa','Summa betalt',
             'Familjemedlem 1','Familjemedlem 2','Familjemedlem 3','Familjemedlem 4','Familjemedlem 5','Familjemedlem 6'])
     # Merge in invoice details
-    mc_export_df = mc_export_df.merge(mc_invoice_df, on='MedlemsID', how='left', suffixes=(None,'_inv'))
+    mc_export_df = mc_export_df.merge(mc_invoice_df, on='MedlemsID', how='left', suffixes=(None,'_inv'), validate = "one_to_one")
     #mc_export_df = mc_export_df.merge(mc_invoice_df[['MedlemsID','Avgift']], on='MedlemsID', how='left', suffixes=(None,'_inv'))
-    #print(mc_export_df)
+    #print(mc_export_df.head())
+    # TODO Handle this info when importing to IO
 
     # Current members in IdrottOnline
     io_current_df = read_file(io_file_name)
@@ -244,9 +227,23 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
 
     # 2. Compare MC data with current IO data
     # Todo
+    #comp_df = io_import_df[['Förnamn','Alt. förnamn','Efternamn','Födelsedat./Personnr.','Kön','Nationalitet','Telefon mobil','E-post kontakt',
+    #    'Kontaktadress - c/o adress','Kontaktadress - Gatuadress','Kontaktadress - Postnummer','Kontaktadress - Postort','Kontaktadress - Land',
+    #    'Arbetsadress - c/o adress','Arbetsadress - Gatuadress','Arbetsadress - Postnummer','Arbetsadress - Postort','Arbetsadress - Land',
+    #    'Telefon bostad','Telefon arbete','E-post privat','E-post arbete','Övrig medlemsinfo','Familj','Fam.Admin','Medlem sedan','Medlem t.o.m.']].compare(
+    #        io_current_df[['Förnamn','Alt. förnamn','Efternamn','Födelsedat./Personnr.','Kön','Nationalitet','Telefon mobil','E-post kontakt',
+    #    'Kontaktadress - c/o adress','Kontaktadress - Gatuadress','Kontaktadress - Postnummer','Kontaktadress - Postort','Kontaktadress - Land',
+    #    'Arbetsadress - c/o adress','Arbetsadress - Gatuadress','Arbetsadress - Postnummer','Arbetsadress - Postort','Arbetsadress - Land',
+    #    'Telefon bostad','Telefon arbete','E-post privat','E-post arbete','Övrig medlemsinfo','Familj','Fam.Admin','Medlem sedan','Medlem t.o.m.']])
 
+    #df1 = io_import_df[['Förnamn','Efternamn','Födelsedat./Personnr.','Kön','Medlem sedan']].copy()
+    #print(df1.axes)
+    #df2 = io_current_df[['Förnamn','Efternamn','Födelsedat./Personnr.','Kön','Medlem sedan']].copy()
+    #print(df2.axes)
+    #comp_df = df1.compare(df2)
+    #save_file('/usr/src/app/files/' + date_today + '_mc-io_comparison.xlsx', comp_df)
+    
     # 3. Save export
-    # TODO: Still fields left to work with
     save_file('/usr/src/app/files/' + date_today + '_mc-converted-for-import.xlsx', io_import_df)
 
     # 4. Merge test

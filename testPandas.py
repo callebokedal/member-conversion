@@ -90,6 +90,11 @@ df['foo'] = [try_concat(x, y, z) for x, y, z in zip(df['bar'], df['foo'], df['ho
 
 print(df)
 
+df1 = pd.DataFrame(np.random.randn(6, 4),
+   index=list('abcdef'),
+   columns=list('ABCD'))
+print(df1)
+
 print("===")
 
 def concat_special_cols_old(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb):

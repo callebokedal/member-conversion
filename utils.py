@@ -116,26 +116,25 @@ def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_
     """
     Concatinate special columns into one, comma-separated list of strings
     """
-    #print("hej")
     result = [ str.strip(grp) for grp in groups.split(",") ]
     if cirkusutb == "Ja":
-        result.append("MC_Cirkusledarutbildning")
+        result.append("579058") # MC_Cirkusledarutbildning
     if frisksportlofte == "Ja":
-        result.append("MC_FrisksportlöfteJa")
+        result.append("579061") # MC_FrisksportlöfteJa
     if frisksportlofte == "Nej":
-        result.append("MC_FrisksportlöfteNej")
+        result.append("579062") # MC_FrisksportlöfteNej
     if hedersmedlem == "Ja":
-        result.append("MC_Hedersmedlem")
+        result.append("579065") #M C_Hedersmedlem
     if ingen_tidning == "Ja":
-        result.append("MC_IngenTidning")
+        result.append("579035") # MC_IngenTidning
     if frisksportutb == "Frisksport Basic (grundledarutbildning)":
-        result.append("MC_FrisksportutbildningBasic")
+        result.append("579069") # MC_FrisksportutbildningBasic
     if frisksportutb == "Ledarutbildning steg 1":
-        result.append("MC_FrisksportutbildningSteg1")
+        result.append("579068") # MC_FrisksportutbildningSteg1
     if trampolinutb == "Steg 1":
-        result.append("MC_TrampolinutbildningSteg1")
+        result.append("579071") # MC_TrampolinutbildningSteg1
     if trampolinutb == "Steg 2":
-        result.append("MC_TrampolinutbildningSteg2")
+        result.append("579072") # MC_TrampolinutbildningSteg2
     result.sort()
     if len(result) > 0:
         return ", ".join(result)
