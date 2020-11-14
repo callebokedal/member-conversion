@@ -29,7 +29,7 @@ clear && docker run -it --rm --name my-test-script -v "$PWD":/usr/src/app -w /us
 ```
 ## Convert and join My Club and IO members
 ```bash
-clear && docker run -it --rm --name my-test-script -v "$PWD":/usr/src/app -w /usr/src/app python-slim-buster python convert_members.py
+clear && docker run -it --rm --name my-test-script -v "$PWD":/usr/src/app -w /usr/src/app python-slim-buster python convert_members.py files/2020-11-14_MyClub_all_member_export.xls files/2020-11-13_MyClub_invoice_export.xls files/2020-11-11_all-io-members2.xlsx
 ```
 
 # My Club helper
