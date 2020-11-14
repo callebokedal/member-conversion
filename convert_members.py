@@ -81,6 +81,13 @@ def process_files(path):
                 save_file(path + "/" + name.replace('-excel.txt','-merged.xlsx'), merged_df)
     it.close()
 
+def stats(text):
+    """
+    Utility function to print stats. Easy to disable...
+    """
+    if True:
+        print(text)
+
 def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     """
     Takes a My Club All members file and converts to IdrottOnline Import Excel
@@ -92,11 +99,13 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     mc_export_df['Kontakt 1 epost'] = mc_export_df['Kontakt 1 epost'].apply(simple_lower)
     mc_export_df['Postort'] = mc_export_df['Postort'].map(lambda x: x if type(x)!=str else x.title())
     mc_export_df['Postnummer'] = mc_export_df['Postnummer'].apply(convert_postnr)
+    stats("Antal medlemmar i MC: " + str(len(mc_export_df)) + " (" + mc_file_name.replace(path+"/","") + ")")
 
     # Invoice info from My Club
     mc_invoice_df = pd.read_excel(mc_invoice_file, 
         usecols=['MedlemsID','Avgift','Summa','Summa betalt',
             'Familjemedlem 1','Familjemedlem 2','Familjemedlem 3','Familjemedlem 4','Familjemedlem 5','Familjemedlem 6'])
+    stats("Antal fakturor i MC:  " + str(len(mc_invoice_df)) + " (" + mc_invoice_file.replace(path+"/","") + ")")
     # Merge in invoice details
     mc_export_df = mc_export_df.merge(mc_invoice_df, on='MedlemsID', how='left', suffixes=(None,'_inv'), validate = "one_to_one")
     #mc_export_df = mc_export_df.merge(mc_invoice_df[['MedlemsID','Avgift']], on='MedlemsID', how='left', suffixes=(None,'_inv'))
@@ -109,6 +118,7 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     io_current_df['E-post kontakt'] = io_current_df['E-post kontakt'].apply(simple_lower)
     io_current_df['E-post privat'] = io_current_df['E-post privat'].apply(simple_lower)
     io_current_df['E-post arbete'] = io_current_df['E-post arbete'].apply(simple_lower)
+    stats("Antal medlemmar i IO: " + str(len(io_current_df)) + " (" + io_file_name.replace(path+"/","") + ")")
 
     # My Club output columns - for ref
     # Note! It seems like My Club uses different names on import vs export!
@@ -214,8 +224,7 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     io_import_df['Familj'] = mc_export_df['Familj']
 #    io_import_df['Fam.Admin'] = mc_export_df[''] 
     io_import_df['Lägg till GruppID'] = mc_export_df['Grupper'].apply(convert_mc_groups_to_io_groups) # TODO Append more fields to this ('Frisksportlöfte'-info for ex)
-    # Also - add special columns as groups
-    #df_test 
+    # Also - add special columns as groupIDs
     io_import_df['Lägg till GruppID'] = [concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb) 
         for groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb 
         in zip(io_import_df['Lägg till GruppID'], mc_export_df['Cirkusledarutbildning'], mc_export_df['Frisksportlöfte'], mc_export_df['Hedersmedlem'], mc_export_df['Ingen tidning tack'], mc_export_df['Frisksportutbildning'], mc_export_df['Trampolinutbildning'])]
@@ -250,10 +259,17 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     # TODO: Just testing
     mc_io_merged_df = pd.merge(io_current_df, io_import_df, 
                      on = 'Födelsedat./Personnr.',
-                     how = 'inner',
+                     how = 'outer',
                      suffixes = ('_io','_mc'),
                      indicator = True)
-
+    stats("Antal sammanfogade: " + str(len(mc_io_merged_df)) + " (" + str(date_today) + "_mc-converted-vs-io-current.xlsx)")
+    #stats("Finns i båda: ") + mc_io_merged_df.groupby("_merge"))
+    merge_grouped = mc_io_merged_df.groupby(['_merge'])
+    #print(mc_io_merged_df.filter(items=['_merge']))
+    #stats(merge_grouped._merge.count())
+    stats("Enbart i MC: " + str(len(mc_io_merged_df.loc[mc_io_merged_df['_merge'] == 'right_only' ])))
+    stats("Enbart i IO: " + str(len(mc_io_merged_df.loc[mc_io_merged_df['_merge'] == 'left_only' ])))
+    stats("I både MC och IO: " + str(len(mc_io_merged_df.loc[mc_io_merged_df['_merge'] == 'both' ])))
     save_file('/usr/src/app/files/' + date_today + '_mc-converted-vs-io-current.xlsx', mc_io_merged_df)
 
     #print(mc_export_df)
