@@ -75,7 +75,7 @@ def convert_mc_groups_to_io_groups(groups_str):
 
 def one_mc_groupto_io(single_group):
     """
-    Convert one singel group from MC to IO
+    Convert one single group from MC to IO GroupID
     """
     g = str(single_group).strip()    
     if g == "Trampolin (SACRO)":

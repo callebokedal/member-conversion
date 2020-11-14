@@ -41,12 +41,12 @@ assert (clean_pii_comments("-7134se Johan") == "se Johan")
 assert (clean_pii_comments("") == "")
 
 # Test group handling
-print(convert_mc_groups_to_io_groups("Orientering, Medlemmar"))
-assert (convert_mc_groups_to_io_groups("Orientering, Medlemmar") == "MC_OL, MC_Medlemmar")
-assert (convert_mc_groups_to_io_groups("Orientering, Medlemmar, Senior") == "MC_OL, MC_Medlemmar, Senior")
-print(convert_mc_groups_to_io_groups("styrelsen, Medlemmar"))
-assert (convert_mc_groups_to_io_groups("styrelsen, Medlemmar") == "Styrelse SFK, MC_Medlemmar")
-assert (convert_mc_groups_to_io_groups("Huvudsektion,styrelsen, Medlemmar") == "MC_Huvudsektion, Styrelse SFK, MC_Medlemmar")
+#print(convert_mc_groups_to_io_groups("Orientering, Medlemmar"))
+#assert (convert_mc_groups_to_io_groups("Orientering, Medlemmar") == "MC_OL, MC_Medlemmar")
+#assert (convert_mc_groups_to_io_groups("Orientering, Medlemmar, Senior") == "MC_OL, MC_Medlemmar, Senior")
+#print(convert_mc_groups_to_io_groups("styrelsen, Medlemmar"))
+#assert (convert_mc_groups_to_io_groups("styrelsen, Medlemmar") == "Styrelse SFK, MC_Medlemmar")
+#assert (convert_mc_groups_to_io_groups("Huvudsektion,styrelsen, Medlemmar") == "MC_Huvudsektion, Styrelse SFK, MC_Medlemmar")
 
 # Dates
 
@@ -82,5 +82,3 @@ print(r3)
 list1 = ['physics', 'Biology', 'chemistry', 'maths']
 list1.sort()
 print ("list now : ", list1)
-
-#r2 = 
