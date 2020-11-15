@@ -140,6 +140,13 @@ def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_
     else:
         return ""
 
+def add_import_group(p):
+    """
+    Add additional groups for person
+    MC_Import: 579010
+    """
+    pass
+
 _MC_GROUPS = [(26905, 31, 'Fotboll'),
 (26914, 40, 'Huvudsektion'),
 (28612, 192, 'Innebandy'),

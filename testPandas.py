@@ -146,4 +146,10 @@ print(df.loc[1])
 print("".center(80,"-"))
 print(df[['Cirkusledarutbildning','Hedersmedlem']])
 
+# Stupid ex but show how to filter on string length
+df_test = df[df['Hedersmedlem'].str.len()<3]
+
+print(df_test)
+print(len(df_test))
+
 

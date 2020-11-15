@@ -290,12 +290,15 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     mc_io_merged_file = path + str(date_today) + '_mc-io-merged.xlsx'
     stats("Antal sammanfogade:   " + str(len(mc_io_merged_df)) + " (" + Path(mc_io_merged_file).name + ")")
     #stats("Finns i båda: ") + mc_io_merged_df.groupby("_merge"))
-    merge_grouped = mc_io_merged_df.groupby(['_merge'])
+    #merge_grouped = mc_io_merged_df.groupby(['_merge'])
     #print(mc_io_merged_df.filter(items=['_merge']))
     #stats(merge_grouped._merge.count())
+    # df[df['var1'].str.len()>3]
     stats("Enbart i MC: " + str(len(mc_io_merged_df.loc[mc_io_merged_df['_merge'] == 'right_only' ])))
     stats("Enbart i IO: " + str(len(mc_io_merged_df.loc[mc_io_merged_df['_merge'] == 'left_only' ])))
     stats("I både MC och IO: " + str(len(mc_io_merged_df.loc[mc_io_merged_df['_merge'] == 'both' ])))
+    stats("Antal med endast födelsedatum: " + str(len(mc_io_merged_df[mc_io_merged_df['Födelsedat./Personnr.'].str.len() == 8])))
+    stats("Antal med fullt personnummer:  " + str(len(mc_io_merged_df[mc_io_merged_df['Födelsedat./Personnr.'].str.len() > 8])))
     save_file(mc_io_merged_file, mc_io_merged_df)
 
     #print(mc_export_df)
