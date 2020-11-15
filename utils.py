@@ -3,7 +3,7 @@ import re
 import pandas as pd
 import numpy as np
 
-def convert_personnummer(mc_pnr):
+def convert_mc_personnummer_to_io(mc_pnr):
     """
     Convert Personnummer of format "yyyymmddnnnn" to "yyyymmdd-nnnn". Also handle case "yyyymmdd".
     IO use this format
@@ -63,15 +63,20 @@ def clean_pii_comments(text):
 
 def convert_mc_groups_to_io_groups(groups_str):
     """
-    Convert Groups in MC to group to use in IO - always with prefix "MC_"
+    Convert Groups in MC to group to use in IO 
     """
     # Split on ,
-    result = ""
+    result = []
     for grp in groups_str.split(','):
-        result += ", " + one_mc_groupto_io(grp)
-    if result.startswith(", "):
-        result = result[2:]
-    return result
+        group_id = one_mc_groupto_io(grp)
+        if group_id:
+            result.append(group_id)
+    #if result.startswith(", "):
+    #    result = result[2:]
+    if len(result) > 0:
+        return ", ".join(result)
+    else:
+        return ""
 
 def one_mc_groupto_io(single_group):
     """
@@ -103,7 +108,8 @@ def one_mc_groupto_io(single_group):
     elif g == "Skidor":
         return "579398" # MC_Skidor
     else:
-        return g
+        #print("Warning - unhandled group: " + g)
+        return None
 
 def simple_lower(x):
     """
@@ -111,7 +117,7 @@ def simple_lower(x):
     """
     return x if type(x)!=str else x.lower()
 
-def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb):
+def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift):
     """
     Concatinate special columns into one, comma-separated list of strings
     """
@@ -134,6 +140,9 @@ def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_
         result.append("579071") # MC_TrampolinutbildningSteg1
     if trampolinutb == "Steg 2":
         result.append("579072") # MC_TrampolinutbildningSteg2
+    if avgift == "Medlemsavgift 2020":
+        result.append("579384") # MC_Medlemsavgift_2020
+
     result.sort()
     if len(result) > 0:
         return ", ".join(result)

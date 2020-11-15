@@ -6,8 +6,12 @@ from datetime import date
 import time 
 from time import strftime
 
-from utils import convert_countrycode, convert_personnummer, convert_postnr, \
+from utils import convert_countrycode, convert_mc_personnummer_to_io, convert_postnr, \
     clean_pii_comments, convert_mc_groups_to_io_groups, simple_lower, concat_special_cols
+
+"""
+Script to export members from My Cloud and import in Idrott Online
+"""
 
 # Update to correct timezone
 os.environ["TZ"] = "Europe/Stockholm"
@@ -15,6 +19,7 @@ time.tzset()
 
 today = date.today()
 date_today = today.strftime("%Y-%m-%d")
+timestamp = str(strftime("%Y-%m-%d_%H.%M")) # Timestamp to use for filenames
 
 # Remeber start time
 start_time = time.time()
@@ -40,13 +45,6 @@ validate_file(exp_mc_members_file, 1)
 validate_file(exp_mc_invoices_file, 2)
 validate_file(exp_io_members_file, 3)
 
-def list_all_files(path):
-    """
-    List all files in path
-    """
-    with os.scandir(path) as it:
-        for entry in it:
-            print(entry.name)
 
 # Dataframe for members
 def read_file(file_name):
@@ -84,29 +82,6 @@ def save_file(file_name, df):
     df.to_excel(file_name, index=False)
     return df
 
-def process_files(path):
-    """
-    Process list fo files. Merges full personnummer with existing My Club Member files
-    Expected filenames:
-    - <Group>-excel.txt
-    - <Group>-excel.xls
-    Output:
-    - <Group>-merged.xlsx
-    """
-    with os.scandir(path) as it:
-        for entry in it:
-            i_df = None
-            m_df = None
-            merged_df = None
-            name = entry.name
-            if entry.is_file() and name.endswith('-excel.txt'): 
-                #print(name)
-                i_df = read_id_file(path + "/" + name)
-                m_df = read_file(path + "/" + name.replace('.txt','.xls'))
-                merged_df = merge_dfs(m_df, i_df, 'MedlemsID', 'left')
-                save_file(path + "/" + name.replace('-excel.txt','-merged.xlsx'), merged_df)
-    it.close()
-
 def stats(text):
     """
     Utility function to print stats. Easy to disable...
@@ -114,12 +89,17 @@ def stats(text):
     if True:
         print(text)
 
+def convert_mc_personnummer_to_io_old(pnr):
+    return "..." + pnr
+
 def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     """
     Takes a My Club All members file and converts to IdrottOnline Import Excel
     """
     # My Club Dataframe
-    mc_export_df = read_file(mc_file_name)
+    mc_export_df = pd.read_excel(mc_file_name, 
+        dtype = {'Hemtelefon': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string'},
+        converters = {'Personnummer':convert_mc_personnummer_to_io}) # My Club columns
     # Normalize fields
     mc_export_df['E-post'] = mc_export_df['E-post'].apply(simple_lower) 
     mc_export_df['Kontakt 1 epost'] = mc_export_df['Kontakt 1 epost'].apply(simple_lower)
@@ -135,11 +115,12 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     # Merge in invoice details
     mc_export_df = mc_export_df.merge(mc_invoice_df, on='MedlemsID', how='left', suffixes=(None,'_inv'), validate = "one_to_one")
     #mc_export_df = mc_export_df.merge(mc_invoice_df[['MedlemsID','Avgift']], on='MedlemsID', how='left', suffixes=(None,'_inv'))
-    #print(mc_export_df.head())
+    #print(mc_export_df['Avgift'].head())
     # TODO Handle this info when importing to IO
 
     # Current members in IdrottOnline
-    io_current_df = read_file(io_file_name)
+    io_current_df = pd.read_excel(io_file_name, dtype = {
+        'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': object, 'Medlemsnr.': 'string'}) # IO columns
     # Normalize fields
     io_current_df['E-post kontakt'] = io_current_df['E-post kontakt'].apply(simple_lower)
     io_current_df['E-post privat'] = io_current_df['E-post privat'].apply(simple_lower)
@@ -225,7 +206,7 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     io_import_df['Kön'] = mc_export_df['Kön (flicka/pojke)']
     io_import_df['Nationalitet'] = mc_export_df['Nationalitet'].replace('SE','Sverige')
 #    io_import_df['IdrottsID'] = mc_export_df[''] 
-    io_import_df['Födelsedat./Personnr.'] = mc_export_df['Personnummer'].astype('string').apply(convert_personnummer) 
+    io_import_df['Födelsedat./Personnr.'] = mc_export_df['Personnummer'] #.astype('string').apply(convert_personnummer) 
     io_import_df['Telefon mobil'] = mc_export_df['Mobiltelefon']
     io_import_df['E-post kontakt'] = mc_export_df['E-post'] 
     io_import_df['Kontaktadress - c/o adress'] = mc_export_df['c/o']
@@ -251,9 +232,11 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
 #    io_import_df['Fam.Admin'] = mc_export_df[''] 
     io_import_df['Lägg till GruppID'] = mc_export_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
     # Also - add special columns as groupIDs
-    io_import_df['Lägg till GruppID'] = [concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb) 
-        for groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb 
-        in zip(io_import_df['Lägg till GruppID'], mc_export_df['Cirkusledarutbildning'], mc_export_df['Frisksportlöfte'], mc_export_df['Hedersmedlem'], mc_export_df['Ingen tidning tack'], mc_export_df['Frisksportutbildning'], mc_export_df['Trampolinutbildning'])]
+    io_import_df['Lägg till GruppID'] = [concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift) 
+        for groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift
+        in zip(io_import_df['Lägg till GruppID'], mc_export_df['Cirkusledarutbildning'], mc_export_df['Frisksportlöfte'], 
+            mc_export_df['Hedersmedlem'], mc_export_df['Ingen tidning tack'], mc_export_df['Frisksportutbildning'], 
+            mc_export_df['Trampolinutbildning'], mc_export_df['Avgift'])]
     #print("df_test: ")
     #print(io_import_df['Lägg till GruppID'])
     #print(df_test)
@@ -279,7 +262,8 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     #save_file('/usr/src/app/files/' + date_today + '_mc-io_comparison.xlsx', comp_df)
     
     # 3. Save export
-    save_file('/usr/src/app/files/' + date_today + '_mc-converted-for-import.xlsx', io_import_df)
+    save_file(path + timestamp + '_mc-for-io-import.xlsx', io_import_df)
+    stats("Sparat: " + path + timestamp + '_mc-for-io-import.xlsx')
 
     # 4. Merge test
     mc_io_merged_df = pd.merge(io_current_df, io_import_df, 
@@ -287,7 +271,7 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
                      how = 'outer',
                      suffixes = ('_io','_mc'),
                      indicator = True)
-    mc_io_merged_file = path + str(date_today) + '_mc-io-merged.xlsx'
+    mc_io_merged_file = path + timestamp + '_mc-io-merged.xlsx'
     stats("Antal sammanfogade:   " + str(len(mc_io_merged_df)) + " (" + Path(mc_io_merged_file).name + ")")
     #stats("Finns i båda: ") + mc_io_merged_df.groupby("_merge"))
     #merge_grouped = mc_io_merged_df.groupby(['_merge'])
@@ -300,47 +284,12 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     stats("Antal med endast födelsedatum: " + str(len(mc_io_merged_df[mc_io_merged_df['Födelsedat./Personnr.'].str.len() == 8])))
     stats("Antal med fullt personnummer:  " + str(len(mc_io_merged_df[mc_io_merged_df['Födelsedat./Personnr.'].str.len() > 8])))
     save_file(mc_io_merged_file, mc_io_merged_df)
+    stats("Sparat: " + mc_io_merged_file)
 
     #print(mc_export_df)
     #print(io_current_df)
     #print(io_import_df)
 
-
-def from_io_to_mc(io_file_name, mc_file_name):
-    """
-    Takes a IdrottOnline file and converts into a My Club Import Excel file
-    """
-    """
-    My Club import columns
-    'Förnamn',
-    'Efternamn',
-    'Adress',
-    'Postnummer',
-    'Postadress',
-    'Personnummer',
-    'Hemtelefon medlem',
-    'Hemtelefon kontaktperson1',
-    'Hemtelefon kontaktperson2',
-    'Mobiltelefon medlem',
-    'Mobiltelefon kontaktperson1',
-    'Mobiltelefon kontaktperson2',
-    'Epost medlem',
-    'Epost kontaktperson1',
-    'Epost kontaktperson2',
-    'Lag',
-    'Medlemstyp',
-    'Kön',
-    'Förnamn kontaktperson1',
-    'Efternamn kontaktperson1',
-    'Förnamn kontaktperson2',
-    'Efternamn kontaktperson2',
-    'Extra 1',
-    'Extra 2',
-    'Extra 3',
-    'Extra 4',
-    'Extra 5',
-    """
-    pass
 
 # Action 
 # convert_members(mc_file_name, io_file_name):
