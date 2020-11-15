@@ -139,3 +139,23 @@ def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_
         return ", ".join(result)
     else:
         return ""
+
+_MC_GROUPS = [(26905, 31, 'Fotboll'),
+(26914, 40, 'Huvudsektion'),
+(28612, 192, 'Innebandy'),
+(26875, 1, 'Medlemmar'),
+(31196, 197, 'MIS'),
+(35906, 253, 'MTB'),
+(26883, 9, 'Orientering'),
+(26916, 42, 'Senior'),
+(26937, 63, 'Skateboard (Chillskate)'),
+(26876, 2, 'Skidor'),
+(26938, 64, 'styrelsen'),
+(26949, 75, 'Trampolin (SACRO)'),
+(26913, 39, 'Volleyboll')]
+
+def io(parameter_list):
+    """
+    docstring
+    """
+    pass

@@ -140,4 +140,10 @@ df['Grupper'] = [concat_special_cols(groups, cirkusutb, frisksportlofte, hedersm
 
 print(df)
 
+print("".center(80,"-"))
+print(df.loc[1])
+
+print("".center(80,"-"))
+print(df[['Cirkusledarutbildning','Hedersmedlem']])
+
 

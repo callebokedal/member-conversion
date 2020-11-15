@@ -21,8 +21,6 @@ if len(sys.argv) < 4:
 exp_mc_members_file  = sys.argv[1]
 exp_mc_invoices_file = sys.argv[2]
 exp_io_members_file  = sys.argv[3] 
-if len(sys.argv) > 4:
-    email_file       = sys.argv[4] # Optional
 
 # Validation util
 def validate_file(file_name, nr):
@@ -37,8 +35,6 @@ def validate_file(file_name, nr):
 validate_file(exp_mc_members_file, 1)
 validate_file(exp_mc_invoices_file, 2)
 validate_file(exp_io_members_file, 3)
-if len(sys.argv) > 4:
-    validate_file(email_file, 4)
 
 def list_all_files(path):
     """
