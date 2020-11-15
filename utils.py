@@ -122,6 +122,7 @@ def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_
     Concatinate special columns into one, comma-separated list of strings
     """
     result = [ str.strip(grp) for grp in groups.split(",") ]
+    result.append("579010") # Always append MC_Import
     if cirkusutb == "Ja":
         result.append("579058") # MC_Cirkusledarutbildning
     if frisksportlofte == "Ja":
