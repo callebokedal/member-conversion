@@ -156,65 +156,65 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
         'Familj','Fam.Admin','Lägg till GruppID','Ta bort GruppID']
 
     # 1. Convert all MC members to IO Import format
-    io_import_df = pd.DataFrame(columns=io_import_cols)
-#    io_import_df['Prova-på'] = mc_export_df['']  # Not used in MC?
-    io_import_df['Förnamn'] = mc_export_df['Förnamn']
-#    io_import_df['Alt. förnamn'] = mc_export_df['']  # Found none in MC
-    io_import_df['Efternamn'] = mc_export_df['Efternamn']
-    io_import_df['Kön'] = mc_export_df['Kön (flicka/pojke)']
-    io_import_df['Nationalitet'] = mc_export_df['Nationalitet'].replace('SE','Sverige')
-#    io_import_df['IdrottsID'] = mc_export_df[''] 
-    io_import_df['Födelsedat./Personnr.'] = mc_export_df['Personnummer'] #.astype('string').apply(convert_personnummer) 
-    io_import_df['Telefon mobil'] = mc_export_df['Mobiltelefon']
-    io_import_df['E-post kontakt'] = mc_export_df['E-post'] 
-    io_import_df['Kontaktadress - c/o adress'] = mc_export_df['c/o']
-    io_import_df['Kontaktadress - Gatuadress'] = mc_export_df['Adress']
-    io_import_df['Kontaktadress - Postnummer'] = mc_export_df['Postnummer'].astype('string').apply(convert_postnr)
-    io_import_df['Kontaktadress - Postort'] = mc_export_df['Postort']
-    io_import_df['Kontaktadress - Land'] = mc_export_df['Land'].apply(convert_countrycode)
-#    io_import_df['Arbetsadress - c/o adress'] = mc_export_df['']
-#    io_import_df['Arbetsadress - Gatuadress'] = mc_export_df['']
-#    io_import_df['Arbetsadress - Postnummer'] = mc_export_df['']
-#    io_import_df['Arbetsadress - Postort'] = mc_export_df['']
-#    io_import_df['Arbetsadress - Land'] = mc_export_df['']
-    io_import_df['Telefon bostad'] = mc_export_df['Hemtelefon']
-    io_import_df['Telefon arbete'] = mc_export_df['Arbetstelefon']
-#    io_import_df['E-post privat'] = mc_export_df['Kontakt 1 epost']
-#    io_import_df['E-post arbete'] = mc_export_df['']
+    mc_in_io_format_df = pd.DataFrame(columns=io_import_cols)
+#    mc_in_io_format_df['Prova-på'] = mc_export_df['']  # Not used in MC?
+    mc_in_io_format_df['Förnamn'] = mc_export_df['Förnamn']
+#    mc_in_io_format_df['Alt. förnamn'] = mc_export_df['']  # Found none in MC
+    mc_in_io_format_df['Efternamn'] = mc_export_df['Efternamn']
+    mc_in_io_format_df['Kön'] = mc_export_df['Kön (flicka/pojke)']
+    mc_in_io_format_df['Nationalitet'] = mc_export_df['Nationalitet'].replace('SE','Sverige')
+#    mc_in_io_format_df['IdrottsID'] = mc_export_df[''] 
+    mc_in_io_format_df['Födelsedat./Personnr.'] = mc_export_df['Personnummer'] #.astype('string').apply(convert_personnummer) 
+    mc_in_io_format_df['Telefon mobil'] = mc_export_df['Mobiltelefon']
+    mc_in_io_format_df['E-post kontakt'] = mc_export_df['E-post'] 
+    mc_in_io_format_df['Kontaktadress - c/o adress'] = mc_export_df['c/o']
+    mc_in_io_format_df['Kontaktadress - Gatuadress'] = mc_export_df['Adress']
+    mc_in_io_format_df['Kontaktadress - Postnummer'] = mc_export_df['Postnummer'].astype('string').apply(convert_postnr)
+    mc_in_io_format_df['Kontaktadress - Postort'] = mc_export_df['Postort']
+    mc_in_io_format_df['Kontaktadress - Land'] = mc_export_df['Land'].apply(convert_countrycode)
+#    mc_in_io_format_df['Arbetsadress - c/o adress'] = mc_export_df['']
+#    mc_in_io_format_df['Arbetsadress - Gatuadress'] = mc_export_df['']
+#    mc_in_io_format_df['Arbetsadress - Postnummer'] = mc_export_df['']
+#    mc_in_io_format_df['Arbetsadress - Postort'] = mc_export_df['']
+#    mc_in_io_format_df['Arbetsadress - Land'] = mc_export_df['']
+    mc_in_io_format_df['Telefon bostad'] = mc_export_df['Hemtelefon']
+    mc_in_io_format_df['Telefon arbete'] = mc_export_df['Arbetstelefon']
+#    mc_in_io_format_df['E-post privat'] = mc_export_df['Kontakt 1 epost']
+#    mc_in_io_format_df['E-post arbete'] = mc_export_df['']
     
-    io_import_df['Medlem sedan'] = mc_export_df['Datum registrerad']
-    io_import_df['MC_Senast ändrad'] = mc_export_df['Senast ändrad']
-#    io_import_df['Medlem t.o.m.'] = mc_export_df['']
-    io_import_df['Övrig medlemsinfo'] = mc_export_df['Kommentar'].astype('string').apply(clean_pii_comments) # Special handling - not for all clubs
+    mc_in_io_format_df['Medlem sedan'] = mc_export_df['Datum registrerad']
+    mc_in_io_format_df['MC_Senast ändrad'] = mc_export_df['Senast ändrad']
+#    mc_in_io_format_df['Medlem t.o.m.'] = mc_export_df['']
+    mc_in_io_format_df['Övrig medlemsinfo'] = mc_export_df['Kommentar'].astype('string').apply(clean_pii_comments) # Special handling - not for all clubs
     # Add special info to 'Övrig medlemsinfo' - MC MedlemsInfo and execution time
-    io_import_df['Övrig medlemsinfo'] = [add_comment_info(comment, member_id, timestamp)
+    mc_in_io_format_df['Övrig medlemsinfo'] = [add_comment_info(comment, member_id, timestamp)
         for comment, member_id
-        in zip(io_import_df['Övrig medlemsinfo'] , mc_export_df['MedlemsID'])]
+        in zip(mc_in_io_format_df['Övrig medlemsinfo'] , mc_export_df['MedlemsID'])]
     # TODO If 'Medlemsnr.' is empty in IO - add 'MedlemsID' from MC
-    #io_import_df['Medlemsnr.'] = mc_export_df['MedlemsID'] 
+    #mc_in_io_format_df['Medlemsnr.'] = mc_export_df['MedlemsID'] 
 
-#   io_import_df['Familj'] = mc_export_df['Familj']
-#    io_import_df['Fam.Admin'] = mc_export_df[''] 
-    io_import_df['Lägg till GruppID'] = mc_export_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
+#   mc_in_io_format_df['Familj'] = mc_export_df['Familj']
+#    mc_in_io_format_df['Fam.Admin'] = mc_export_df[''] 
+    mc_in_io_format_df['Lägg till GruppID'] = mc_export_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
     # Also - add special columns as groupIDs
-    io_import_df['Lägg till GruppID'] = [concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift) 
+    mc_in_io_format_df['Lägg till GruppID'] = [concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift) 
         for groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift
-        in zip(io_import_df['Lägg till GruppID'], mc_export_df['Cirkusledarutbildning'], mc_export_df['Frisksportlöfte'], 
+        in zip(mc_in_io_format_df['Lägg till GruppID'], mc_export_df['Cirkusledarutbildning'], mc_export_df['Frisksportlöfte'], 
             mc_export_df['Hedersmedlem'], mc_export_df['Ingen tidning tack'], mc_export_df['Frisksportutbildning'], 
             mc_export_df['Trampolinutbildning'], mc_export_df['Avgift'])]
     # Also - add family info as groups
     # 2020-11-15 Disabled - since IO does not handle this according to documentation...
     if False:
         mc_export_df['Familj'] = mc_export_df['Familj'].apply(mc_family_to_id)
-        io_import_df['Lägg till GruppID'] = [concat_group_id(groups, family_id) 
+        mc_in_io_format_df['Lägg till GruppID'] = [concat_group_id(groups, family_id) 
             for groups, family_id 
-            in zip(io_import_df['Lägg till GruppID'], mc_export_df['Familj'])]
+            in zip(mc_in_io_format_df['Lägg till GruppID'], mc_export_df['Familj'])]
 
-#    io_import_df['Ta bort GruppID'] = mc_export_df[''] # TODO
+#    mc_in_io_format_df['Ta bort GruppID'] = mc_export_df[''] # TODO
 
     # 2. Compare MC data with current IO data
     # Todo
-    #comp_df = io_import_df[['Förnamn','Alt. förnamn','Efternamn','Födelsedat./Personnr.','Kön','Nationalitet','Telefon mobil','E-post kontakt',
+    #comp_df = mc_in_io_format_df[['Förnamn','Alt. förnamn','Efternamn','Födelsedat./Personnr.','Kön','Nationalitet','Telefon mobil','E-post kontakt',
     #    'Kontaktadress - c/o adress','Kontaktadress - Gatuadress','Kontaktadress - Postnummer','Kontaktadress - Postort','Kontaktadress - Land',
     #    'Arbetsadress - c/o adress','Arbetsadress - Gatuadress','Arbetsadress - Postnummer','Arbetsadress - Postort','Arbetsadress - Land',
     #    'Telefon bostad','Telefon arbete','E-post privat','E-post arbete','Övrig medlemsinfo','Familj','Fam.Admin','Medlem sedan','Medlem t.o.m.']].compare(
@@ -223,19 +223,19 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     #    'Arbetsadress - c/o adress','Arbetsadress - Gatuadress','Arbetsadress - Postnummer','Arbetsadress - Postort','Arbetsadress - Land',
     #    'Telefon bostad','Telefon arbete','E-post privat','E-post arbete','Övrig medlemsinfo','Familj','Fam.Admin','Medlem sedan','Medlem t.o.m.']])
 
-    #df1 = io_import_df[['Förnamn','Efternamn','Födelsedat./Personnr.','Kön','Medlem sedan']].copy()
+    #df1 = mc_in_io_format_df[['Förnamn','Efternamn','Födelsedat./Personnr.','Kön','Medlem sedan']].copy()
     #print(df1.axes)
     #df2 = io_current_df[['Förnamn','Efternamn','Födelsedat./Personnr.','Kön','Medlem sedan']].copy()
     #print(df2.axes)
     #comp_df = df1.compare(df2)
     #save_file('/usr/src/app/files/' + date_today + '_mc-io_comparison.xlsx', comp_df)
     
-    # 3. Save export
-    save_file(path + timestamp + '_mc-for-io-import.xlsx', io_import_df)
-    stats("Sparat: " + path + timestamp + '_mc-for-io-import.xlsx')
+    # 3. Save file with all members from MC in correct format (still need to cross check with IO!)
+    save_file(path + timestamp + '_all_mc_in_io_format.xlsx', mc_in_io_format_df)
+    stats("Sparat: " + path + timestamp + '_all_mc_in_io_format.xlsx')
 
     # 4. Merge test
-    mc_io_merged_df = pd.merge(io_current_df, io_import_df, 
+    mc_io_merged_df = pd.merge(io_current_df, mc_in_io_format_df, 
                      on = 'Födelsedat./Personnr.',
                      how = 'outer',
                      suffixes = ('_io','_mc'),
@@ -257,7 +257,7 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
 
     #print(mc_export_df)
     #print(io_current_df)
-    #print(io_import_df)
+    #print(mc_in_io_format_df)
 
 
 # Action 
