@@ -8,7 +8,7 @@ from time import strftime
 
 from utils import convert_countrycode, convert_mc_personnummer_to_io, convert_postnr, \
     clean_pii_comments, convert_mc_groups_to_io_groups, simply_lower, concat_special_cols, \
-    normalize_postort, mc_family_to_id, concat_group_id
+    normalize_postort, mc_family_to_id, concat_group_id, add_comment_info
 
 """
 Script to export members from My Cloud and import in Idrott Online
@@ -181,11 +181,18 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     io_import_df['Telefon arbete'] = mc_export_df['Arbetstelefon']
 #    io_import_df['E-post privat'] = mc_export_df['Kontakt 1 epost']
 #    io_import_df['E-post arbete'] = mc_export_df['']
-#    io_import_df['Medlemsnr.'] = mc_export_df['MedlemsID'] # TODO
+    
     io_import_df['Medlem sedan'] = mc_export_df['Datum registrerad']
     io_import_df['MC_Senast ändrad'] = mc_export_df['Senast ändrad']
 #    io_import_df['Medlem t.o.m.'] = mc_export_df['']
     io_import_df['Övrig medlemsinfo'] = mc_export_df['Kommentar'].astype('string').apply(clean_pii_comments) # Special handling - not for all clubs
+    # Add special info to 'Övrig medlemsinfo' - MC MedlemsInfo and execution time
+    io_import_df['Övrig medlemsinfo'] = [add_comment_info(comment, member_id, timestamp)
+        for comment, member_id
+        in zip(io_import_df['Övrig medlemsinfo'] , mc_export_df['MedlemsID'])]
+    # TODO If 'Medlemsnr.' is empty in IO - add 'MedlemsID' from MC
+    #io_import_df['Medlemsnr.'] = mc_export_df['MedlemsID'] 
+
 #   io_import_df['Familj'] = mc_export_df['Familj']
 #    io_import_df['Fam.Admin'] = mc_export_df[''] 
     io_import_df['Lägg till GruppID'] = mc_export_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
@@ -202,10 +209,6 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
         io_import_df['Lägg till GruppID'] = [concat_group_id(groups, family_id) 
             for groups, family_id 
             in zip(io_import_df['Lägg till GruppID'], mc_export_df['Familj'])]
-
-    #print("df_test: ")
-    #print(io_import_df['Lägg till GruppID'])
-    #print(df_test)
 
 #    io_import_df['Ta bort GruppID'] = mc_export_df[''] # TODO
 

@@ -136,10 +136,21 @@ def concat_group_id(groups, group_id):
     if not pd.isna(group_id):
         result.append(str(group_id))
     result.sort()
-    if len(result) > 0:
+    if len(result) > 0: 
         return ", ".join(result)
     else:
         return ""
+
+def add_comment_info(comment, medlems_id, timestamp):
+    """
+    Append comment field with special info about MedlemsID and timestamp note
+    """
+    end = "[[MedlemsID: {}]][[Import: {}]]".format(str(medlems_id), timestamp)
+    if pd.isna(comment):
+        comment = end
+    else:
+        comment = "{} {}".format(comment, end)
+    return comment
 
 def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift):
     """
