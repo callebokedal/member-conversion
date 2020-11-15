@@ -4,6 +4,7 @@ files
 docs
 handle_s.py
 convert_members.sh
+families.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

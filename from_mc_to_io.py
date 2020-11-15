@@ -7,7 +7,8 @@ import time
 from time import strftime
 
 from utils import convert_countrycode, convert_mc_personnummer_to_io, convert_postnr, \
-    clean_pii_comments, convert_mc_groups_to_io_groups, simple_lower, concat_special_cols, normalize_postort
+    clean_pii_comments, convert_mc_groups_to_io_groups, simply_lower, concat_special_cols, \
+    normalize_postort, mc_family_to_id, concat_group_id
 
 """
 Script to export members from My Cloud and import in Idrott Online
@@ -68,13 +69,8 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     mc_export_df = pd.read_excel(mc_file_name, 
         dtype = {'Hemtelefon': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string'},
         converters = {'Personnummer':convert_mc_personnummer_to_io, 
-            'E-post':simple_lower, 'Kontakt 1 epost':simple_lower, 
+            'E-post':simply_lower, 'Kontakt 1 epost':simply_lower, 
             'Postnummer':convert_postnr, 'Postort':normalize_postort}) # My Club columns
-    # Normalize fields
-    #mc_export_df['E-post'] = mc_export_df['E-post'].apply(simple_lower) 
-    #mc_export_df['Kontakt 1 epost'] = mc_export_df['Kontakt 1 epost'].apply(simple_lower)
-    #mc_export_df['Postort'] = mc_export_df['Postort'].map(lambda x: x if type(x)!=str else x.title())
-    #mc_export_df['Postnummer'] = mc_export_df['Postnummer'].apply(convert_postnr)
     stats("Antal medlemmar i MC: " + str(len(mc_export_df)) + " (" + Path(mc_file_name).name + ")")
 
     # Invoice info from My Club
@@ -83,24 +79,17 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
             'Familjemedlem 1','Familjemedlem 2','Familjemedlem 3','Familjemedlem 4','Familjemedlem 5','Familjemedlem 6'])
     stats("Antal fakturor i MC:  " + str(len(mc_invoice_df)) + " (" + Path(mc_invoice_file).name + ")")
     # Merge in invoice details
+    # Added later as special column
+    # TODO Only for family head and not each person
     mc_export_df = mc_export_df.merge(mc_invoice_df, on='MedlemsID', how='left', suffixes=(None,'_inv'), validate = "one_to_one")
-    #mc_export_df = mc_export_df.merge(mc_invoice_df[['MedlemsID','Avgift']], on='MedlemsID', how='left', suffixes=(None,'_inv'))
-    #print(mc_export_df['Avgift'].head())
-    # TODO Handle this info when importing to IO
 
     # Current members in IdrottOnline
     io_current_df = pd.read_excel(io_file_name, dtype = {
-        'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': object, 'Medlemsnr.': 'string'}) # IO columns
-    # Normalize fields
-    io_current_df['E-post kontakt'] = io_current_df['E-post kontakt'].apply(simple_lower)
-    io_current_df['E-post privat'] = io_current_df['E-post privat'].apply(simple_lower)
-    io_current_df['E-post arbete'] = io_current_df['E-post arbete'].apply(simple_lower)
+        'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': object, 'Medlemsnr.': 'string'},
+        converters = {'E-post kontakt':simply_lower, 'E-post privat':simply_lower, 'E-post arbete':simply_lower}) # IO columns
     stats("Antal medlemmar i IO: " + str(len(io_current_df)) + " (" + Path(io_file_name).name + ")")
 
     # My Club output columns - for ref
-    # Note! It seems like My Club uses different names on import vs export!
-    # According to export:          'Kontakt 1 förnamn'
-    # According to import template: 'Förnamn kontaktperson1'
     mc_export_df_cols = ['Förnamn',
         'Efternamn',
         'För- och efternamn',
@@ -197,7 +186,7 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     io_import_df['MC_Senast ändrad'] = mc_export_df['Senast ändrad']
 #    io_import_df['Medlem t.o.m.'] = mc_export_df['']
     io_import_df['Övrig medlemsinfo'] = mc_export_df['Kommentar'].astype('string').apply(clean_pii_comments) # Special handling - not for all clubs
-    io_import_df['Familj'] = mc_export_df['Familj']
+#   io_import_df['Familj'] = mc_export_df['Familj']
 #    io_import_df['Fam.Admin'] = mc_export_df[''] 
     io_import_df['Lägg till GruppID'] = mc_export_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
     # Also - add special columns as groupIDs
@@ -206,6 +195,14 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
         in zip(io_import_df['Lägg till GruppID'], mc_export_df['Cirkusledarutbildning'], mc_export_df['Frisksportlöfte'], 
             mc_export_df['Hedersmedlem'], mc_export_df['Ingen tidning tack'], mc_export_df['Frisksportutbildning'], 
             mc_export_df['Trampolinutbildning'], mc_export_df['Avgift'])]
+    # Also - add family info as groups
+    # 2020-11-15 Disabled - since IO does not handle this according to documentation...
+    if False:
+        mc_export_df['Familj'] = mc_export_df['Familj'].apply(mc_family_to_id)
+        io_import_df['Lägg till GruppID'] = [concat_group_id(groups, family_id) 
+            for groups, family_id 
+            in zip(io_import_df['Lägg till GruppID'], mc_export_df['Familj'])]
+
     #print("df_test: ")
     #print(io_import_df['Lägg till GruppID'])
     #print(df_test)

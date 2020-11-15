@@ -3,6 +3,7 @@ from datetime import date
 import time, os
 from time import strftime
 from datetime import datetime, timezone
+from utils import mc_family_to_id
 
 # Update to correct timezone
 os.environ["TZ"] = "Europe/Stockholm"
@@ -11,7 +12,7 @@ time.tzset()
 start_time = time.time()
 
 
-from utils import convert_countrycode, convert_personnummer, convert_postnr, \
+from utils import convert_countrycode, convert_mc_personnummer_to_io, convert_postnr, \
     clean_pii_comments, convert_mc_groups_to_io_groups, one_mc_groupto_io
 
 data = {'Fruits': ['BANANA','APPLE','','WATERMELON','PEAR'],
@@ -92,3 +93,6 @@ print ("list now : ", list1)
 print(strftime("%Y-%m-%d %H:%M"))
 print(datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S %z"))
 print(-time.timezone)
+
+print(mc_family_to_id("Andersson [24151]"))
+print(mc_family_to_id("Missing [24151]"))

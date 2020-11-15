@@ -3,6 +3,8 @@ import re
 import pandas as pd
 import numpy as np
 
+from families import families
+
 def convert_mc_personnummer_to_io(mc_pnr):
     """
     Convert Personnummer of format "yyyymmddnnnn" to "yyyymmdd-nnnn". Also handle case "yyyymmdd".
@@ -117,11 +119,27 @@ def one_mc_groupto_io(single_group):
         #print("Warning - unhandled group: " + g)
         return None
 
-def simple_lower(x):
+def simply_lower(x):
     """
     Convert to lower, if string
     """
     return x if type(x)!=str else x.lower()
+
+def concat_group_id(groups, group_id):
+    """
+    Concatinate group_id to already existing groups
+    """
+    #print(groups)
+    #print(group_id)
+    result = [ str.strip(grp) for grp in groups.split(",") ]
+    #if len(str(group_id)) > 0:
+    if not pd.isna(group_id):
+        result.append(str(group_id))
+    result.sort()
+    if len(result) > 0:
+        return ", ".join(result)
+    else:
+        return ""
 
 def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift):
     """
@@ -176,3 +194,25 @@ _MC_GROUPS = [(26905, 31, 'Fotboll'),
 (26938, 64, 'styrelsen'),
 (26949, 75, 'Trampolin (SACRO)'),
 (26913, 39, 'Volleyboll')]
+
+def mc_family_to_id(name):
+    """
+    Convert My Club family name to IO Group id
+
+    Real names hidden from github
+    families = [('Lastname [123]','123456'),
+        ('Ohter name [456]','123457'),
+        ...
+    """
+    #print(name)
+    if not pd.isna(name):
+        name = re.sub(r'.*\[', '[', name) # Name skipped due to encoding issue risk
+        if name in families:
+            return families[name]
+    return None
+
+
+#print(mc_family_to_id("Andersson [24151]"))
+#print(mc_family_to_id("Whatever [24151]"))
+#print(mc_family_to_id("Foo [14202]"))
+#print(mc_family_to_id("Not there [1234567]"))
