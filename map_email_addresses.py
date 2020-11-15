@@ -6,7 +6,7 @@ from datetime import date
 import time 
 from time import strftime
 
-mc_pd = pd.read_excel('/usr/src/app/files/2020-11-15_MyClub_all_member_export.xls', usecols=['MedlemsID','Förnamn','Efternamn','Personnummer','E-post'], dtype = {
+mc_pd = pd.read_excel('/usr/src/app/files/2020-11-15_11.15_MyClub_all_member_export.xls', usecols=['MedlemsID','Förnamn','Efternamn','Personnummer','E-post','Senast ändrad'], dtype = {
         'MedlemsID': 'string','Personnummer': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string'}) # My Club columns
 
 email_pd = pd.read_excel('/usr/src/app/files/2020-11-03_cg_medlemmar_2020.xls', usecols=['Förnamn','Efternamn','Personnummer','E-post'], dtype = {
@@ -14,9 +14,12 @@ email_pd = pd.read_excel('/usr/src/app/files/2020-11-03_cg_medlemmar_2020.xls', 
 
 comp_df = pd.merge(mc_pd, email_pd, 
         on = 'E-post',
+        #on = 'Personnummer',
         how = 'outer',
         suffixes = ('_mc','_cg'),
         indicator = True)
 
 diff = comp_df[comp_df['_merge'] != 'both']
 print(diff)
+
+#print(mc_pd.loc['Personnummer'])
