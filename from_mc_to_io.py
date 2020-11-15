@@ -7,7 +7,7 @@ import time
 from time import strftime
 
 from utils import convert_countrycode, convert_mc_personnummer_to_io, convert_postnr, \
-    clean_pii_comments, convert_mc_groups_to_io_groups, simple_lower, concat_special_cols
+    clean_pii_comments, convert_mc_groups_to_io_groups, simple_lower, concat_special_cols, normalize_postort
 
 """
 Script to export members from My Cloud and import in Idrott Online
@@ -45,36 +45,6 @@ validate_file(exp_mc_members_file, 1)
 validate_file(exp_mc_invoices_file, 2)
 validate_file(exp_io_members_file, 3)
 
-
-# Dataframe for members
-def read_file(file_name):
-    """
-    Read and return Excel file as df
-    """
-    df = pd.read_excel(file_name, dtype = {
-        'Hemtelefon': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', # My Club columns
-        'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': object, 'Medlemsnr.': 'string'}) # IO columns
-    return df
-
-def read_id_file(file_name):
-    """
-    Read file with member id and personnummer
-    """
-    df = pd.read_csv(file_name, header=None, names=['MedlemsID', 'Personnummer2'], dtype = {'Personnummer2': object})    
-    #print(df)
-    return df
- 
-# Merge full personnumer into members
-def merge_dfs(df1, df2, on, dir = 'left'):
-    """
-    Merge dataframes based on column 'on'
-    """
-    merged_df = pd.merge(df1, df2, 
-                     on = on,
-                     how = dir,
-                     validate = 'one_to_one')
-    return merged_df
-
 def save_file(file_name, df):
     """
     Save to Excel file
@@ -89,8 +59,6 @@ def stats(text):
     if True:
         print(text)
 
-def convert_mc_personnummer_to_io_old(pnr):
-    return "..." + pnr
 
 def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     """
@@ -99,12 +67,14 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     # My Club Dataframe
     mc_export_df = pd.read_excel(mc_file_name, 
         dtype = {'Hemtelefon': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string'},
-        converters = {'Personnummer':convert_mc_personnummer_to_io}) # My Club columns
+        converters = {'Personnummer':convert_mc_personnummer_to_io, 
+            'E-post':simple_lower, 'Kontakt 1 epost':simple_lower, 
+            'Postnummer':convert_postnr, 'Postort':normalize_postort}) # My Club columns
     # Normalize fields
-    mc_export_df['E-post'] = mc_export_df['E-post'].apply(simple_lower) 
-    mc_export_df['Kontakt 1 epost'] = mc_export_df['Kontakt 1 epost'].apply(simple_lower)
-    mc_export_df['Postort'] = mc_export_df['Postort'].map(lambda x: x if type(x)!=str else x.title())
-    mc_export_df['Postnummer'] = mc_export_df['Postnummer'].apply(convert_postnr)
+    #mc_export_df['E-post'] = mc_export_df['E-post'].apply(simple_lower) 
+    #mc_export_df['Kontakt 1 epost'] = mc_export_df['Kontakt 1 epost'].apply(simple_lower)
+    #mc_export_df['Postort'] = mc_export_df['Postort'].map(lambda x: x if type(x)!=str else x.title())
+    #mc_export_df['Postnummer'] = mc_export_df['Postnummer'].apply(convert_postnr)
     stats("Antal medlemmar i MC: " + str(len(mc_export_df)) + " (" + Path(mc_file_name).name + ")")
 
     # Invoice info from My Club
@@ -197,7 +167,6 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
         'Familj','Fam.Admin','Lägg till GruppID','Ta bort GruppID']
 
     # 1. Convert all MC members to IO Import format
-    # TODO: IO Export and IO Import labels differ... ex: "Folkbokföring - Gatuadress" vs "Kontaktadress - Gatuadress" ???
     io_import_df = pd.DataFrame(columns=io_import_cols)
 #    io_import_df['Prova-på'] = mc_export_df['']  # Not used in MC?
     io_import_df['Förnamn'] = mc_export_df['Förnamn']

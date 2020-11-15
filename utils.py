@@ -25,6 +25,12 @@ def convert_postnr(mc_nr):
     else:
         return nr
 
+def normalize_postort(x):
+    """
+    Normalize Postort, "city somewhere" -> "City Somewhere"
+    """
+    return x if type(x)!=str else x.title()
+
 def convert_countrycode(country):
     """
     Convert Country code of format "SE" to "Sverige"
@@ -170,9 +176,3 @@ _MC_GROUPS = [(26905, 31, 'Fotboll'),
 (26938, 64, 'styrelsen'),
 (26949, 75, 'Trampolin (SACRO)'),
 (26913, 39, 'Volleyboll')]
-
-def io(parameter_list):
-    """
-    docstring
-    """
-    pass
