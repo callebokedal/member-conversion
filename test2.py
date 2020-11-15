@@ -1,6 +1,8 @@
 import pandas as pd
 from datetime import date
-import time 
+import time, os
+from time import strftime
+from datetime import datetime, timezone
 
 start_time = time.time()
 
@@ -82,3 +84,9 @@ print(r3)
 list1 = ['physics', 'Biology', 'chemistry', 'maths']
 list1.sort()
 print ("list now : ", list1)
+
+os.environ["TZ"] = "Europe/Stockholm"
+time.tzset()
+print(strftime("%Y-%m-%d %H:%M"))
+print(datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S %z"))
+print(-time.timezone)

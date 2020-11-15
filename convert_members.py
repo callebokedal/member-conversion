@@ -9,6 +9,10 @@ from time import strftime
 from utils import convert_countrycode, convert_personnummer, convert_postnr, \
     clean_pii_comments, convert_mc_groups_to_io_groups, simple_lower, concat_special_cols
 
+# Update to correct timezone
+os.environ["TZ"] = "Europe/Stockholm"
+time.tzset()
+
 today = date.today()
 date_today = today.strftime("%Y-%m-%d")
 
@@ -238,14 +242,14 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     io_import_df['Telefon arbete'] = mc_export_df['Arbetstelefon']
 #    io_import_df['E-post privat'] = mc_export_df['Kontakt 1 epost']
 #    io_import_df['E-post arbete'] = mc_export_df['']
-#    io_import_df['Medlemsnr.'] = mc_export_df['MedlemsID']
+#    io_import_df['Medlemsnr.'] = mc_export_df['MedlemsID'] # TODO
     io_import_df['Medlem sedan'] = mc_export_df['Datum registrerad']
     io_import_df['MC_Senast ändrad'] = mc_export_df['Senast ändrad']
 #    io_import_df['Medlem t.o.m.'] = mc_export_df['']
     io_import_df['Övrig medlemsinfo'] = mc_export_df['Kommentar'].astype('string').apply(clean_pii_comments) # Special handling - not for all clubs
     io_import_df['Familj'] = mc_export_df['Familj']
 #    io_import_df['Fam.Admin'] = mc_export_df[''] 
-    io_import_df['Lägg till GruppID'] = mc_export_df['Grupper'].apply(convert_mc_groups_to_io_groups) # TODO Append more fields to this ('Frisksportlöfte'-info for ex)
+    io_import_df['Lägg till GruppID'] = mc_export_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
     # Also - add special columns as groupIDs
     io_import_df['Lägg till GruppID'] = [concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb) 
         for groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb 
