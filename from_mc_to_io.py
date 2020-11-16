@@ -83,12 +83,6 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     # TODO Only for family head and not each person
     mc_export_df = mc_export_df.merge(mc_invoice_df, on='MedlemsID', how='left', suffixes=(None,'_inv'), validate = "one_to_one")
 
-    # Current members in IdrottOnline
-    io_current_df = pd.read_excel(io_file_name, dtype = {
-        'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': object, 'Medlemsnr.': 'string'},
-        converters = {'E-post kontakt':simply_lower, 'E-post privat':simply_lower, 'E-post arbete':simply_lower}) # IO columns
-    stats("Antal medlemmar i IO: " + str(len(io_current_df)) + " (" + Path(io_file_name).name + ")")
-
     # My Club output columns - for ref
     mc_export_df_cols = ['Förnamn',
         'Efternamn',
@@ -190,8 +184,7 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     mc_in_io_format_df['Övrig medlemsinfo'] = [add_comment_info(comment, member_id, timestamp)
         for comment, member_id
         in zip(mc_in_io_format_df['Övrig medlemsinfo'] , mc_export_df['MedlemsID'])]
-    # TODO If 'Medlemsnr.' is empty in IO - add 'MedlemsID' from MC
-    #mc_in_io_format_df['Medlemsnr.'] = mc_export_df['MedlemsID'] 
+    
 
 #   mc_in_io_format_df['Familj'] = mc_export_df['Familj']
 #    mc_in_io_format_df['Fam.Admin'] = mc_export_df[''] 
@@ -234,26 +227,48 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     save_file(path + timestamp + '_all_mc_in_io_format.xlsx', mc_in_io_format_df)
     stats("Sparat: " + path + timestamp + '_all_mc_in_io_format.xlsx')
 
-    # 4. Merge test
-    mc_io_merged_df = pd.merge(io_current_df, mc_in_io_format_df, 
+    # 4. Merge
+    
+    # Current members in IdrottOnline
+    io_current_df = pd.read_excel(io_file_name, 
+        usecols=['Födelsedat./Personnr.'],
+        dtype = {
+        'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': object, 'Medlemsnr.': 'string'},
+        converters = {'E-post kontakt':simply_lower, 'E-post privat':simply_lower, 'E-post arbete':simply_lower}) # IO columns
+    stats("Antal medlemmar i IO: " + str(len(io_current_df)) + " (" + Path(io_file_name).name + ")")
+
+    # For import
+    # TODO Remove this later!
+    # This is already handled by how = 'left' below - so we can assign 'Medlemsnr.' without risking overwrite
+    # mc_in_io_format_df['Medlemsnr.'] = mc_export_df['MedlemsID'] 
+    # TODO Remove this later!
+    # Filter - only non-existing in IO (solved by how = 'left')
+    for_io_import_df = pd.merge(mc_in_io_format_df, io_current_df,
                      on = 'Födelsedat./Personnr.',
-                     how = 'outer',
-                     suffixes = ('_io','_mc'),
+                     how = 'left',
+                     suffixes = ('_mc','_io'),
                      indicator = True)
-    mc_io_merged_file = path + timestamp + '_mc-io-merged.xlsx'
-    stats("Antal sammanfogade:   " + str(len(mc_io_merged_df)) + " (" + Path(mc_io_merged_file).name + ")")
-    #stats("Finns i båda: ") + mc_io_merged_df.groupby("_merge"))
-    #merge_grouped = mc_io_merged_df.groupby(['_merge'])
-    #print(mc_io_merged_df.filter(items=['_merge']))
+
+    # Filter - only with full personnummer
+    for_io_import_df = for_io_import_df[for_io_import_df['Födelsedat./Personnr.'].str.len() > 8]
+
+    # Filter - only MC
+    for_io_import_df = for_io_import_df[for_io_import_df['_merge'] == "left_only" ]
+
+    for_io_import_file = path + timestamp + '_for_io_import.xlsx'
+    stats("Antal för import till IO:   " + str(len(for_io_import_df)) + " (" + Path(for_io_import_file).name + ")")
+    #stats("Finns i båda: ") + for_io_import_df.groupby("_merge"))
+    #merge_grouped = for_io_import_df.groupby(['_merge'])
+    #print(for_io_import_df.filter(items=['_merge']))
     #stats(merge_grouped._merge.count())
     # df[df['var1'].str.len()>3]
-    stats("Enbart i MC: " + str(len(mc_io_merged_df.loc[mc_io_merged_df['_merge'] == 'right_only' ])))
-    stats("Enbart i IO: " + str(len(mc_io_merged_df.loc[mc_io_merged_df['_merge'] == 'left_only' ])))
-    stats("I både MC och IO: " + str(len(mc_io_merged_df.loc[mc_io_merged_df['_merge'] == 'both' ])))
-    stats("Antal med endast födelsedatum: " + str(len(mc_io_merged_df[mc_io_merged_df['Födelsedat./Personnr.'].str.len() == 8])))
-    stats("Antal med fullt personnummer:  " + str(len(mc_io_merged_df[mc_io_merged_df['Födelsedat./Personnr.'].str.len() > 8])))
-    save_file(mc_io_merged_file, mc_io_merged_df)
-    stats("Sparat: " + mc_io_merged_file)
+    #stats("Enbart i MC: " + str(len(for_io_import_df.loc[for_io_import_df['_merge'] == 'right_only' ])))
+    stats("Enbart i MC: " + str(len(for_io_import_df.loc[for_io_import_df['_merge'] == 'left_only' ])))
+    stats("I både MC och IO: " + str(len(for_io_import_df.loc[for_io_import_df['_merge'] == 'both' ])))
+    stats("Antal med endast födelsedatum: " + str(len(for_io_import_df[for_io_import_df['Födelsedat./Personnr.'].str.len() == 8])))
+    stats("Antal med fullt personnummer:  " + str(len(for_io_import_df[for_io_import_df['Födelsedat./Personnr.'].str.len() > 8])))
+    save_file(for_io_import_file, for_io_import_df)
+    stats("Sparat: " + for_io_import_file)
 
     #print(mc_export_df)
     #print(io_current_df)

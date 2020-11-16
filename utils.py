@@ -145,7 +145,7 @@ def add_comment_info(comment, medlems_id, timestamp):
     """
     Append comment field with special info about MedlemsID and timestamp note
     """
-    end = "[[MedlemsID: {}]][[Import: {}]]".format(str(medlems_id), timestamp)
+    end = "[[MC-ID: {}]][[Import: {}]]".format(str(medlems_id), timestamp)
     if pd.isna(comment):
         comment = end
     else:
@@ -158,6 +158,7 @@ def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_
     """
     result = [ str.strip(grp) for grp in groups.split(",") ]
     result.append("579010") # Always append MC_Import
+    result.append("579873") # MC_Uppdaterad
     if cirkusutb == "Ja":
         result.append("579058") # MC_Cirkusledarutbildning
     if frisksportlofte == "Ja":
