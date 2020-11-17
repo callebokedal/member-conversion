@@ -432,8 +432,8 @@ def check_status(mc_file_name, io_file_name):
     stats("Antal med ofullständiga personnummer I IO: {:>4}".format(str(len(io_read_df[io_read_df['Födelsedat./Personnr.'].str.len() == 8]))))
 
     merged_df = pd.merge(mc_read_df, io_read_df,
-        left_on = 'Personnummer',
-        right_on = 'Födelsedat./Personnr.',
+        left_on = ['Personnummer','Förnamn','Efternamn'],
+        right_on = ['Födelsedat./Personnr.','Förnamn','Efternamn'],
         how = 'outer',
         suffixes = ('_mc','_io'),
         indicator = True)
