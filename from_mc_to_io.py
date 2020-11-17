@@ -273,17 +273,20 @@ def update_io_email_from_mc(io_file_name, cg_email_file):
                      right_on = 'Personnummer',
                      how = 'inner',
                      suffixes = ('','_cg'))
+    stats("Antal med matchande personnummer: {}".format(str(len(matches_df))))
     # Add missing, neccessary for import, columns - as nan
     matches_df[['Prova-på','Ta bort GruppID']] = np.nan
 
     # Only match on full personnummer - not safe to use birthdate
     matches_df = matches_df[matches_df['Personnummer'].str.len() == 13]
+    stats("Antal med matchande (fullständiga) personnummer: {}".format(str(len(matches_df))))
 
     # Test for matching e-mail or not
     matches_df['Update e-mail?'] = np.where(matches_df['E-post'] == matches_df['E-post kontakt'], False, True)
 
     # Keep only rows with newer e-mail
     matches_df = matches_df[matches_df['Update e-mail?'] == True]
+    stats("Antal med nya e-poster: {}".format(str(len(matches_df))))
 
     # Save old e-mail to comment
     matches_df['Övrig medlemsinfo'] = [add_email_to_comment(comment, old_email, date_today)
@@ -334,6 +337,9 @@ print(" Start ".center(80, "-"))
 
 # Export-2 - Update IO members in IO with newer e-mails from MC
 update_io_email_from_mc(exp_io_members_file, cg_email_file)
+
+# Export-3 - Map groups in MC and IO 
+
 
 print ("Tidsåtgång: " + str(round((time.time() - start_time),1)) + " s")
 print((" Klart (" + strftime("%Y-%m-%d %H:%M") + ") ").center(80, "-"))
