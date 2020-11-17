@@ -238,26 +238,94 @@ def update_io_email_from_mc(io_file_name, cg_email_file):
     Create import file where existing IO members get newer e-mails from MC and CG file - based on update date
     """
     # IO df
+    io_read_cols = ['Förnamn','Alt. förnamn','Efternamn','Kön','Nationalitet','IdrottsID','Födelsedat./Personnr.','Telefon mobil',
+        'E-post kontakt','Kontaktadress - c/o adress','Kontaktadress - Gatuadress','Kontaktadress - Postnummer','Kontaktadress - Postort',
+        'Kontaktadress - Land','Arbetsadress - c/o adress','Arbetsadress - Gatuadress','Arbetsadress - Postnummer','Arbetsadress - Postort','Arbetsadress - Land',
+        'Telefon bostad','Telefon arbete','E-post privat','E-post arbete','Medlemsnr.','Medlem sedan','Medlem t.o.m.','Övrig medlemsinfo',
+        'Familj','Fam.Admin']
     io_read_df = pd.read_excel(io_file_name, 
-        usecols=['Förnamn', 'Efternamn', 'Födelsedat./Personnr.','E-post kontakt','E-post privat'],
-        dtype = {'Hemtelefon': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string'},
-        converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email}) # IO Columns
+        usecols= io_read_cols,
+        dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+            'Medlemsnr.': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
+        converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
+            'Personnummer':convert_mc_personnummer_to_io, 
+            'Kontakt 1 epost':normalize_email, 
+            'Postnummer':convert_postnr, 'Postort':normalize_postort}) # IO Columns
     stats("Antal inlästa från IO: {} ({})".format(str(len(io_read_df)), Path(io_file_name).name))
 
-    # CG e-mail file - file with updated e-mails
+    # CG e-mail file - file with updated e-mails (partial)
     cg_read_df = pd.read_excel(cg_email_file, 
         usecols=['Förnamn', 'Efternamn', 'Personnummer','E-post'],
         converters = {'Personnummer':convert_mc_personnummer_to_io, 'E-post':normalize_email}) # CG Columns
     stats("Antal inlästa från CG: {} ({})".format(str(len(cg_read_df)), Path(cg_email_file).name))
 
+    # Match inner on Personnummer = only exact matches
+
+    # 1. Convert all MC members to IO Import format
+    io_import_cols = ['Förnamn','Alt. förnamn','Efternamn','Kön','Nationalitet','IdrottsID','Födelsedat./Personnr.','Telefon mobil',
+        'E-post kontakt','Kontaktadress - c/o adress','Kontaktadress - Gatuadress','Kontaktadress - Postnummer','Kontaktadress - Postort',
+        'Kontaktadress - Land','Arbetsadress - c/o adress','Arbetsadress - Gatuadress','Arbetsadress - Postnummer','Arbetsadress - Postort','Arbetsadress - Land',
+        'Telefon bostad','Telefon arbete','E-post privat','E-post arbete','Medlemsnr.','Medlem sedan','Medlem t.o.m.','Övrig medlemsinfo',
+        'Familj','Fam.Admin']
+    matches_df = pd.DataFrame(columns=io_import_cols)
     matches_df = pd.merge(io_read_df, cg_read_df,
                      left_on = 'Födelsedat./Personnr.',
                      right_on = 'Personnummer',
-                     how = 'right',
-                     suffixes = ('_io','_cg'),
-                     indicator = True)
-    print(matches_df)
+                     how = 'inner',
+                     suffixes = ('','_cg'))
+    # Add missing, neccessary for import, columns - as nan
+    matches_df[['Prova-på','Ta bort GruppID']] = np.nan
 
+    # Only match on full personnummer - not safe to use birthdate
+    matches_df = matches_df[matches_df['Personnummer'].str.len() == 13]
+
+    # Test for matching e-mail or not
+    matches_df['Update e-mail?'] = np.where(matches_df['E-post'] == matches_df['E-post kontakt'], False, True)
+
+    # Keep only rows with newer e-mail
+    matches_df = matches_df[matches_df['Update e-mail?'] == True]
+
+    # Save old e-mail to comment
+    matches_df['Övrig medlemsinfo'] = [add_email_to_comment(comment, old_email, date_today)
+        for comment, old_email
+        in zip(matches_df['Övrig medlemsinfo'] , matches_df['E-post kontakt'])]
+
+    # Update e-mail
+    matches_df['E-post kontakt'] = matches_df['E-post']
+
+    # Add specific group for these posts
+    matches_df['Lägg till GruppID'] = '580125' # EpostUppdaterad
+
+    # Keep only columns to import
+    #matches_df = matches_df[['Förnamn', 'Efternamn', 'Födelsedat./Personnr.','E-post kontakt','E-post privat','Övrig medlemsinfo','Lägg till GruppID']]
+    matches_df = matches_df[['Prova-på','Förnamn','Alt. förnamn','Efternamn','Kön','Nationalitet','IdrottsID','Födelsedat./Personnr.','Telefon mobil',
+        'E-post kontakt','Kontaktadress - c/o adress','Kontaktadress - Gatuadress','Kontaktadress - Postnummer','Kontaktadress - Postort',
+        'Kontaktadress - Land','Arbetsadress - c/o adress','Arbetsadress - Gatuadress','Arbetsadress - Postnummer','Arbetsadress - Postort','Arbetsadress - Land',
+        'Telefon bostad','Telefon arbete','E-post privat','E-post arbete','Medlemsnr.','Medlem sedan','Medlem t.o.m.','Övrig medlemsinfo',
+        'Familj','Fam.Admin','Lägg till GruppID','Ta bort GruppID']]
+
+    io_email_filename = path + date_today + '_io_e-mail_update.xlsx'
+    save_file(io_email_filename, matches_df)
+    stats("Antal att uppdatera i IO: {} ({})".format(str(len(matches_df)), Path(io_email_filename).name))
+
+def add_email_to_comment(comment, old_email, timestamp):
+    """
+    Append comment field with old email
+    """
+    if pd.isna(old_email):
+        return comment
+    end = "[[Old: {}]][[Uppdaterad: {}]]".format(old_email, timestamp)
+    if pd.isna(comment):
+        comment = end
+    else:
+        comment = "{} {}".format(comment, end)
+    return comment
+
+def compare_email(email1, email2):
+    """
+    Compare e-mails. Return 'same' or 'differ'
+    """
+    return 'same' if email1 == email2 else 'differ'
 
 # Action 
 print(" Start ".center(80, "-"))

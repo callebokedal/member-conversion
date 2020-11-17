@@ -91,9 +91,7 @@ def merge_dfs(df1, df2, left_name, right_name, dir = 'left'):
 #mdf = merge_dfs(members, id_df, 'MedlemsID','MedlemsID2', 'left')
 #print(mdf)
 
-
 print("done test.py")
-
 
 print(normalize_email("A"))
 print(normalize_email(3))
