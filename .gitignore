@@ -3,9 +3,10 @@ io
 files
 docs
 handle_s.py
+families.py
 convert_members.sh
 update_email.sh
-families.py
+sync_groups.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

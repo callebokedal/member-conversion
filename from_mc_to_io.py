@@ -25,15 +25,6 @@ timestamp = str(strftime("%Y-%m-%d_%H.%M")) # Timestamp to use for filenames
 # Remeber start time
 start_time = time.time()
 
-path = '/usr/src/app/files/' # Required base path
-if len(sys.argv) < 4:
-    sys.exit("Illegal input arguments. Usage: convert_members.py <exported My Club members file> <exported My Club invoices file> <exported IO members file> [<e-mail file>]")
-exp_mc_members_file  = sys.argv[1]
-exp_mc_invoices_file = sys.argv[2]
-exp_io_members_file  = sys.argv[3] 
-if len(sys.argv) == 5:
-    cg_email_file = sys.argv[4]
-
 # Validation util
 def validate_file(file_name, nr):
     if not Path(file_name).exists():
@@ -43,11 +34,23 @@ def validate_file(file_name, nr):
     if not str(fpath).startswith(path):
         sys.exit("Illegal file path (" + str(int(nr)) + ")")
 
-# Validate input
-validate_file(exp_mc_members_file, 1)
-validate_file(exp_mc_invoices_file, 2)
-validate_file(exp_io_members_file, 3)
-if len(sys.argv) == 5:
+path = '/usr/src/app/files/' # Required base path
+#if len(sys.argv) < 4:
+#    sys.exit("Illegal input arguments. Usage: convert_members.py <exported My Club members file> <exported My Club invoices file> <exported IO members file> [<e-mail file>]")
+if len(sys.argv) > 1:
+    exp_mc_members_file  = sys.argv[1]
+    validate_file(exp_mc_members_file, 1)
+
+if len(sys.argv) > 2:
+    exp_mc_invoices_file = sys.argv[2]
+    validate_file(exp_mc_invoices_file, 2)
+
+if len(sys.argv) > 3:
+    exp_io_members_file  = sys.argv[3] 
+    validate_file(exp_io_members_file, 3)
+
+if len(sys.argv) > 4:
+    cg_email_file = sys.argv[4]
     validate_file(cg_email_file, 4)
 
 
@@ -64,7 +67,6 @@ def stats(text):
     """
     if True:
         print(text)
-
 
 def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     """
@@ -330,16 +332,89 @@ def compare_email(email1, email2):
     """
     return 'same' if email1 == email2 else 'differ'
 
+def sync_groups_from_mc_to_io(mc_file_name, io_file_name):
+    """
+    Sync groupes between MC and IO
+    """
+    # Get data from latest MC export
+    mc_read_df = pd.read_excel(mc_file_name, 
+        dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+            'MedlemsID': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
+        converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
+            'Personnummer':convert_mc_personnummer_to_io, 
+            'Kontakt 1 epost':normalize_email, 
+            'Postnummer':convert_postnr, 'Postort':normalize_postort}) # MC Columns
+    stats("Antal inlästa från MC: {} ({})".format(str(len(mc_read_df)), Path(mc_file_name).name))
+
+    # Get data from latest IO export
+    io_read_df = pd.read_excel(io_file_name, 
+        #usecols= io_read_cols,
+        dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+            'Medlemsnr.': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
+        converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
+            'Personnummer':convert_mc_personnummer_to_io, 
+            'Kontakt 1 epost':normalize_email, 
+            'Postnummer':convert_postnr, 
+            'Kontaktadress - Postort':normalize_postort,
+            'Postort':normalize_postort}) # IO Columns
+    # print(io_read_df.columns)
+    stats("Antal inlästa från IO: {} ({})".format(str(len(io_read_df)), Path(io_file_name).name))
+
+    merged_df = pd.merge(mc_read_df, io_read_df,
+        left_on = 'Personnummer',
+        right_on = 'Födelsedat./Personnr.',
+        how = 'inner',
+        suffixes = ('_mc',''))
+    stats("Antal lika (på personnummer): {}".format(str(len(merged_df))))
+
+    # Filter away members with incomplete 'personnummer'
+    merged_df = merged_df[merged_df['Personnummer'].str.len() == 13]
+    stats("Antal med fullständiga personnummer: {}".format(str(len(merged_df))))
+
+    # Filter away those originating from MC (= have group "MC_Import")
+    merged_df = merged_df[merged_df['Grupp/Lag/Arbetsrum/Familj'].str.contains('MC_Import', na="") != True]
+    stats("Antal utan MC-grupper i IO: {}".format(str(len(merged_df))))
+
+    # Add missing, neccessary for import, columns - as nan
+    merged_df[['Prova-på', 'Ta bort GruppID']] = np.nan
+
+    # Convert MC groups to IO GroupID's
+    merged_df['Lägg till GruppID'] = merged_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
+
+    # Add special group 'MC_GruppViaMC'
+    # We know that all groups are non-empty, we can just add a the end
+    merged_df['Lägg till GruppID'] = merged_df['Lägg till GruppID'].apply(lambda x : x + ', 580242')
+
+    # Retain columsn to be used for import only
+    export_cols = ['Prova-på', 'Förnamn', 'Alt. förnamn', 'Efternamn', 'Kön', 'Nationalitet', 'IdrottsID', 
+        'Födelsedat./Personnr.', 'Telefon mobil', 'E-post kontakt', 'Kontaktadress - c/o adress', 'Kontaktadress - Gatuadress', 
+        'Kontaktadress - Postnummer', 'Kontaktadress - Postort', 'Kontaktadress - Land', 'Arbetsadress - c/o adress', 
+        'Arbetsadress - Gatuadress', 'Arbetsadress - Postnummer', 'Arbetsadress - Postort', 'Arbetsadress - Land', 'Telefon bostad', 
+        'Telefon arbete', 'E-post privat', 'E-post arbete', 'Medlemsnr.', 'Medlem sedan', 'Medlem t.o.m.', 'Övrig medlemsinfo', 
+        'Familj', 'Fam.Admin', 'Lägg till GruppID', 'Ta bort GruppID']
+    merged_df = merged_df[export_cols]
+
+    # sync_groups_filename = path + date_today + '_sync_groups_update.xlsx'
+    sync_groups_filename = path + timestamp + '_sync_groups_update.xlsx'
+    save_file(sync_groups_filename, merged_df)
+    stats("Antal att uppdatera i IO: {} ({})".format(str(len(merged_df)), Path(sync_groups_filename).name))
+
 # Action 
 print(" Start ".center(80, "-"))
 # Export-1 - Move non-existing members in IO from MC to IO
-#from_mc_to_io(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
+# Use conver_members.sh
+# from_mc_to_io(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
 
 # Export-2 - Update IO members in IO with newer e-mails from MC
-update_io_email_from_mc(exp_io_members_file, cg_email_file)
+# Use update_email.sh
+# update_io_email_from_mc(exp_io_members_file, cg_email_file)
 
 # Export-3 - Map groups in MC and IO 
+# Use sync_groups.sh
+sync_groups_from_mc_to_io(exp_mc_members_file, exp_io_members_file)
 
+# Check the rest
+# TODO Check member with non-complete personnummer
 
 print ("Tidsåtgång: " + str(round((time.time() - start_time),1)) + " s")
 print((" Klart (" + strftime("%Y-%m-%d %H:%M") + ") ").center(80, "-"))

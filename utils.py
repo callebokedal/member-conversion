@@ -79,8 +79,6 @@ def convert_mc_groups_to_io_groups(groups_str):
         group_id = one_mc_groupto_io(grp)
         if group_id:
             result.append(group_id)
-    #if result.startswith(", "):
-    #    result = result[2:]
     if len(result) > 0:
         return ", ".join(result)
     else:
@@ -115,8 +113,10 @@ def one_mc_groupto_io(single_group):
         return "579399" # MC_Innebandy
     elif g == "Skidor":
         return "579398" # MC_Skidor
+    elif g == "Uppdatering till fullt personnummer":
+        return None # Skip
     else:
-        #print("Warning - unhandled group: " + g)
+        print("Warning - unhandled group: " + g)
         return None
 
 def normalize_email(x):
