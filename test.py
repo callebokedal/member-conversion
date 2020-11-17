@@ -1,6 +1,8 @@
 import pandas as pd
 import os
 
+from utils import normalize_email
+
 path = '/usr/src/app'
 
 def list_files(path):
@@ -20,7 +22,6 @@ def list_all_files(path):
             print(entry.name)
 
 # Dataframe for members
-members=None
 def read_file(file_name):
     """
     Test to read Excel via pandas
@@ -34,7 +35,6 @@ def read_file(file_name):
     # print(df)
     return df
 
-id_df=None
 def read_id_file(file_name):
     """
     Read file with member id and personnummer
@@ -47,13 +47,13 @@ def read_id_file(file_name):
 #list_all_files(path)
 
 # Get mapping of id <-> pnr
-id_df = read_id_file("./files/Senior-excel.txt")
+#id_df = read_id_file("./files/Senior-excel.txt")
 # print(id_df)
 #print(id_df.dtypes)
 # MedlemsID       int64
 # Personnummer    int64
 
-members = read_file("./files/Senior-excel.xls")
+#members = read_file("./files/Senior-excel.xls")
 #print(members.dtypes)
 
 def merge_data(mem_df, id_df):
@@ -88,8 +88,14 @@ def merge_dfs(df1, df2, left_name, right_name, dir = 'left'):
 
 #merge_data(members, id_df)
 
-mdf = merge_dfs(members, id_df, 'MedlemsID','MedlemsID2', 'left')
-print(mdf)
+#mdf = merge_dfs(members, id_df, 'MedlemsID','MedlemsID2', 'left')
+#print(mdf)
 
 
 print("done test.py")
+
+
+print(normalize_email("A"))
+print(normalize_email(3))
+print(normalize_email(" B"))
+print(normalize_email(" C ") + ".")

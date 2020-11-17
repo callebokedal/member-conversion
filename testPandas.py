@@ -131,12 +131,12 @@ df = pd.DataFrame({'Grupper':['Trampolin (SACRO)', 'Medlemmar,Orientering', 'Fot
  'Hedersmedlem': ['Nej','Nej','Nej','Nej','Nej','Ja','Nej','Nej','Nej','Nej','Ja','Ja','Nej','Nej'],
  'Ingen tidning tack': ['Nej','Nej','Nej','Nej','Nej','Ja','','Nej','Nej','Nej','Ja','Nej','Nej','Nej'],
  'Frisksportutbildning': ['Ja','Ja','Ja','Nej','Nej','Ja','Nej','Nej','Nej','Nej','Ja','Nej','Nej','Nej'],
- 'Trampolinutbildning': ['Nej','Nej','Nej','Nej','','Ja','Nej','Nej','Nej','Nej','Ja','Nej','Nej','Nej']})
+ 'Trampolinutbildning': ['Nej','Nej','Nej','Nej','','Ja','Nej','Nej','Nej','Nej','Ja','Nej','Nej','Nej'],
+ 'Avgift': ['Nej','Nej','Nej','Nej','','Ja','Nej','Nej','Nej','Nej','Ja','Nej','Nej','Nej']})
 print(df)
-df['Grupper'] = [concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb) 
-    for groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb 
-    in zip(df['Grupper'], df['Cirkusledarutbildning'], df['Frisksportlöfte'], df['Hedersmedlem'], df['Ingen tidning tack'], df['Frisksportutbildning'], df['Trampolinutbildning'])]
-
+df['Grupper'] = [concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift) 
+    for groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift 
+    in zip(df['Grupper'], df['Cirkusledarutbildning'], df['Frisksportlöfte'], df['Hedersmedlem'], df['Ingen tidning tack'], df['Frisksportutbildning'], df['Trampolinutbildning'], df['Avgift'])]
 
 print(df)
 

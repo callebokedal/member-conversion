@@ -119,11 +119,11 @@ def one_mc_groupto_io(single_group):
         #print("Warning - unhandled group: " + g)
         return None
 
-def simply_lower(x):
+def normalize_email(x):
     """
-    Convert to lower, if string
+    Convert to lower and strip whitespaces, if string
     """
-    return x if type(x)!=str else x.lower()
+    return x if type(x)!=str else x.lower().strip()
 
 def concat_group_id(groups, group_id):
     """

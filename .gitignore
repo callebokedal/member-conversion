@@ -4,6 +4,7 @@ files
 docs
 handle_s.py
 convert_members.sh
+update_email.sh
 families.py
 
 # Byte-compiled / optimized / DLL files
