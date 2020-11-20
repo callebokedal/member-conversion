@@ -1,3 +1,4 @@
+# pylint: disable=import-error
 import pandas as pd
 import numpy as np
 import os, sys
@@ -52,7 +53,6 @@ if len(sys.argv) > 3:
 if len(sys.argv) > 4:
     cg_email_file = sys.argv[4]
     validate_file(cg_email_file, 4)
-
 
 def save_file(file_name, df):
     """
@@ -160,6 +160,15 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
             for groups, family_id 
             in zip(mc_in_io_format_df['Lägg till GruppID'], mc_export_df['Familj'])]
 
+    # Export-4 last
+    # Filter out only thos in group "Remaining migration"
+    #print("Groups")
+    #print(mc_export_df['Grupper'])
+    mc_in_io_format_df['MissedGroup'] = np.where(mc_export_df['Grupper'].str.contains('Remaining migration'), 'True', 'False') 
+    mc_in_io_format_df = mc_in_io_format_df[mc_in_io_format_df.MissedGroup == "True"]
+    #print(mc_in_io_format_df.head(10))
+    #pass
+
 #    mc_in_io_format_df['Ta bort GruppID'] = mc_export_df[''] # TODO
 
     # 2. Compare MC data with current IO data
@@ -217,17 +226,12 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     # Filter - only with full personnummer
     for_io_import_df = for_io_import_df[for_io_import_df['Födelsedat./Personnr.'].str.len() > 8]
 
+
     # Filter - only MC
     for_io_import_df = for_io_import_df[for_io_import_df['_merge'] == "right_only" ]
 
     for_io_import_file = path + timestamp + '_for_io_import.xlsx'
     stats("Antal för import till IO:   " + str(len(for_io_import_df)) + " (" + Path(for_io_import_file).name + ")")
-    #stats("Finns i båda: ") + for_io_import_df.groupby("_merge"))
-    #merge_grouped = for_io_import_df.groupby(['_merge'])
-    #print(for_io_import_df.filter(items=['_merge']))
-    #stats(merge_grouped._merge.count())
-    # df[df['var1'].str.len()>3]
-    #stats("Enbart i MC: " + str(len(for_io_import_df.loc[for_io_import_df['_merge'] == 'right_only' ])))
     stats("Enbart i MC: " + str(len(for_io_import_df.loc[for_io_import_df['_merge'] == 'left_only' ])))
     stats("I både MC och IO: " + str(len(for_io_import_df.loc[for_io_import_df['_merge'] == 'both' ])))
     stats("Antal med endast födelsedatum: " + str(len(for_io_import_df[for_io_import_df['Födelsedat./Personnr.'].str.len() == 8])))
@@ -332,6 +336,92 @@ def compare_email(email1, email2):
     """
     return 'same' if email1 == email2 else 'differ'
 
+def sync_special_fields_from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
+    """
+    Sync forgotten special fileds from MC and IO
+    """
+    # Get data from latest MC export
+    mc_read_df = pd.read_excel(mc_file_name, 
+        dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+            'MedlemsID': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
+        converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
+            'Personnummer':convert_mc_personnummer_to_io, 
+            'Kontakt 1 epost':normalize_email, 
+            'Postnummer':convert_postnr, 'Postort':normalize_postort}) # MC Columns
+    stats("Antal inlästa från MC: {} ({})".format(str(len(mc_read_df)), Path(mc_file_name).name))
+
+    # Invoice info from My Club
+    mc_invoice_df = pd.read_excel(mc_invoice_file, 
+        usecols=['MedlemsID','Avgift'])
+    stats("Antal fakturor i MC:  " + str(len(mc_invoice_df)) + " (" + Path(mc_invoice_file).name + ")")
+    # Merge in invoice details
+    mc_read_df = mc_read_df.merge(mc_invoice_df, on='MedlemsID', how='left', suffixes=(None,'_inv'), validate = "one_to_one")
+    
+    # Get data from latest IO export
+    io_read_df = pd.read_excel(io_file_name, 
+        #usecols= io_read_cols,
+        dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+            'Medlemsnr.': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
+        converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
+            'Personnummer':convert_mc_personnummer_to_io, 
+            'Kontakt 1 epost':normalize_email, 
+            'Postnummer':convert_postnr, 
+            'Kontaktadress - Postort':normalize_postort,
+            'Postort':normalize_postort}) # IO Columns
+    # print(io_read_df.columns)
+    stats("Antal inlästa från IO: {} ({})".format(str(len(io_read_df)), Path(io_file_name).name))
+
+    merged_df = pd.merge(mc_read_df, io_read_df,
+        left_on = 'Personnummer',
+        right_on = 'Födelsedat./Personnr.',
+        #left_on = ['Personnummer','Förnamn','Efternamn'], # Finns personer med felstavade namn
+        #right_on = ['Födelsedat./Personnr.','Förnamn','Efternamn'], # Finns personer med felstavade namn
+        how = 'inner',
+        suffixes = ('_mc',''))
+    stats("Antal match på personnummer/datum: {}".format(str(len(merged_df))))
+
+    # Filter away members with incomplete 'personnummer'
+    merged_df = merged_df[merged_df['Personnummer'].str.len() == 13]
+    stats("Antal med fullständiga personnummer: {:>4}".format(str(len(merged_df))))
+
+    # Filter away those originating from MC (= have group "MC_Import")
+    merged_df = merged_df[merged_df['Grupp/Lag/Arbetsrum/Familj'].str.contains('MC_Import', na="") != True]
+    stats("Antal med ursprung från MC: {}".format(str(len(merged_df))))
+
+    # Add missing, neccessary for import, columns - as nan
+    merged_df[['Prova-på', 'Ta bort GruppID']] = np.nan
+    merged_df['Lägg till GruppID'] = ""
+
+    # Also - add special columns as groupIDs
+    merged_df['Lägg till GruppID'] = [concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift) 
+        for groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift
+        in zip(merged_df['Lägg till GruppID'], mc_read_df['Cirkusledarutbildning'], mc_read_df['Frisksportlöfte'], 
+            mc_read_df['Hedersmedlem'], mc_read_df['Ingen tidning tack'], mc_read_df['Frisksportutbildning'], 
+            mc_read_df['Trampolinutbildning'], mc_read_df['Avgift'])]
+
+    # Convert MC groups to IO GroupID's
+    # Already done... in earlier export
+    # merged_df['Lägg till GruppID'] = merged_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
+
+    # Add special group 'MC_SpecialFält'
+    # We know that all groups are non-empty, we can just add a the end
+    # TODO Kolla detta
+    #merged_df['Lägg till GruppID'] = merged_df['Lägg till GruppID'].apply(lambda x : x + ', 580266')
+
+    # Retain columns to be used for import only
+    export_cols = ['Prova-på', 'Förnamn', 'Alt. förnamn', 'Efternamn', 'Kön', 'Nationalitet', 'IdrottsID', 
+        'Födelsedat./Personnr.', 'Telefon mobil', 'E-post kontakt', 'Kontaktadress - c/o adress', 'Kontaktadress - Gatuadress', 
+        'Kontaktadress - Postnummer', 'Kontaktadress - Postort', 'Kontaktadress - Land', 'Arbetsadress - c/o adress', 
+        'Arbetsadress - Gatuadress', 'Arbetsadress - Postnummer', 'Arbetsadress - Postort', 'Arbetsadress - Land', 'Telefon bostad', 
+        'Telefon arbete', 'E-post privat', 'E-post arbete', 'Medlemsnr.', 'Medlem sedan', 'Medlem t.o.m.', 'Övrig medlemsinfo', 
+        'Familj', 'Fam.Admin', 'Lägg till GruppID', 'Ta bort GruppID']
+    merged_df = merged_df[export_cols]
+
+    sync_specials_filename = path + timestamp + '_sync_specials_update.xlsx'
+    save_file(sync_specials_filename, merged_df)
+    stats("Antal att uppdatera i IO: {} ({})".format(str(len(merged_df)), Path(sync_specials_filename).name))
+
+
 def sync_groups_from_mc_to_io(mc_file_name, io_file_name):
     """
     Sync groupes between MC and IO
@@ -402,6 +492,8 @@ def sync_groups_from_mc_to_io(mc_file_name, io_file_name):
 def check_status(mc_file_name, io_file_name):
     """
     Check status between MC and IO
+
+    NOTE! This function is probably not correct all the way to the end righ now
     """
     # Get data from latest MC export
     mc_read_df = pd.read_excel(mc_file_name, 
@@ -475,11 +567,79 @@ def check_status(mc_file_name, io_file_name):
     save_file(check_status_filename, merged_df)
     stats("Antal kvar att uppdatera: {:>5} ({})".format(str(len(merged_df)), Path(check_status_filename).name))
 
+def sync_last_ones(mc_file_name, mc_invoice_file, io_file_name):
+    """
+    Export last ones from My Club to IO.
+    - Those which have incomplete personnummer
+    - Those who failed in first import ("Remaining migration" in My Club)
+    """
+    # Get data from latest MC export
+    mc_read_df = pd.read_excel(mc_file_name, 
+        dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+            'MedlemsID': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
+        converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
+            'Personnummer':convert_mc_personnummer_to_io, 
+            'Kontakt 1 epost':normalize_email, 
+            'Postnummer':convert_postnr, 'Postort':normalize_postort}) # MC Columns
+    stats("Antal inlästa från MC: {:>4} ({})".format(str(len(mc_read_df)), Path(mc_file_name).name))
+
+    # Get data from latest IO export
+    io_read_df = pd.read_excel(io_file_name, 
+        #usecols= io_read_cols,
+        dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+            'Medlemsnr.': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
+        converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
+            'Personnummer':convert_mc_personnummer_to_io, 
+            'Kontakt 1 epost':normalize_email, 
+            'Postnummer':convert_postnr, 
+            'Kontaktadress - Postort':normalize_postort,
+            'Postort':normalize_postort}) # IO Columns
+    # print(io_read_df.columns)
+    stats("Antal inlästa från IO: {:>4} ({})".format(str(len(io_read_df)), Path(io_file_name).name))
+
+    # Stats about personnummer
+    stats("Antal med ofullständiga personnummer I MC: {:>4}".format(str(len(mc_read_df[mc_read_df['Personnummer'].str.len() == 8]))))
+    stats("Antal med ofullständiga personnummer I IO: {:>4}".format(str(len(io_read_df[io_read_df['Födelsedat./Personnr.'].str.len() == 8]))))
+    stats("Antal med  fullständiga personnummer I MC: {:>4}".format(str(len(mc_read_df[mc_read_df['Personnummer'].str.len() == 13]))))
+    stats("Antal med  fullständiga personnummer I IO: {:>4}".format(str(len(io_read_df[io_read_df['Födelsedat./Personnr.'].str.len() == 13]))))
+
+    # Merge on all 'Personnummer','Förnamn','Efternamn'
+    print("MC " + "> Merge <".center(19, "-") + " IO")
+    merged_df = pd.merge(mc_read_df, io_read_df,
+        left_on = ['Personnummer','Förnamn','Efternamn'],
+        right_on = ['Födelsedat./Personnr.','Förnamn','Efternamn'],
+        how = 'outer',
+        suffixes = ('_mc','_io'),
+        indicator = True)
+    stats("Antal efter merge: {:>8}".format(str(len(merged_df))))
+    stats("Antal lika (på personnummer): {:>12} (fullst. + icke fullständiga)".format(str(len(merged_df))))
+
+    # Number of members with complete personnummer
+    stats("Antal med  fullständiga personnummer: {:>4}".format(str(len(merged_df[merged_df['Personnummer'].str.len() == 13]))))
+
+    # Filter away members with complete 'personnummer'
+    merged_df = merged_df[merged_df['Personnummer'].str.len() == 13]
+    stats("Antal med ofullständiga personnummer: {:>4}".format(str(len(merged_df))))
+
+    # Filter away those originating from MC (= have group "MC_Import")
+    #merged_df = merged_df[merged_df['Grupp/Lag/Arbetsrum/Familj'].str.contains('MC_Import', na="") != True]
+    #stats("Antal utan MC-grupper i IO: {:>3}".format(str(len(merged_df))))
+
+    # Add missing, neccessary for import, columns - as nan
+    merged_df[['Prova-på', 'Ta bort GruppID']] = np.nan
+
+    # Convert MC groups to IO GroupID's
+    merged_df['Lägg till GruppID'] = merged_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
+
+
+    print(merged_df['Grupper'].head())
+
+
 # Action 
 print(" Start ".center(80, "-"))
 # Export-1 - Move non-existing members in IO from MC to IO
 # Use conver_members.sh
-# from_mc_to_io(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
+from_mc_to_io(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
 
 # Export-2 - Update IO members in IO with newer e-mails from MC
 # Use update_email.sh
@@ -491,7 +651,14 @@ print(" Start ".center(80, "-"))
 
 # Check the rest
 # TODO Check member with non-complete personnummer
-check_status(exp_mc_members_file, exp_io_members_file)
+# check_status(exp_mc_members_file, exp_io_members_file)
+
+# Fix special fields as well
+# sync_special_fields_from_mc_to_io(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
+
+
+# Export-4 - All with incomplete personnummer and 5-6 earlier failed imports
+sync_last_ones(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
 
 print ("Tidsåtgång: " + str(round((time.time() - start_time),1)) + " s")
 print((" Klart (" + strftime("%Y-%m-%d %H:%M") + ") ").center(80, "-"))

@@ -156,8 +156,12 @@ def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_
     """
     Concatinate special columns into one, comma-separated list of strings
     """
-    result = [ str.strip(grp) for grp in groups.split(",") ]
-    result.append("579010") # Always append MC_Import
+    if pd.isna(groups):
+        groups = ""
+        result = [ str.strip(grp) for grp in groups.split(",") ]
+    else:
+        result = []
+    #result.append("579010") # Always append MC_Import
     result.append("579873") # MC_Uppdaterad
     if cirkusutb == "Ja":
         result.append("579058") # MC_Cirkusledarutbildning
@@ -166,7 +170,7 @@ def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_
     if frisksportlofte == "Nej":
         result.append("579062") # MC_FrisksportlöfteNej
     if hedersmedlem == "Ja":
-        result.append("579065") #M C_Hedersmedlem
+        result.append("579065") # MC_Hedersmedlem
     if ingen_tidning == "Ja":
         result.append("579035") # MC_IngenTidning
     if frisksportutb == "Frisksport Basic (grundledarutbildning)":
@@ -182,16 +186,11 @@ def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_
 
     result.sort()
     if len(result) > 0:
+        r = ", ".join(result)
+        #print(r)
         return ", ".join(result)
     else:
         return ""
-
-def add_import_group(p):
-    """
-    Add additional groups for person
-    MC_Import: 579010
-    """
-    pass
 
 _MC_GROUPS = [(26905, 31, 'Fotboll'),
 (26914, 40, 'Huvudsektion'),
