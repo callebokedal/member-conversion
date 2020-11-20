@@ -162,14 +162,10 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
 
     # Export-4 last
     # Filter out only thos in group "Remaining migration"
-    #print("Groups")
-    #print(mc_export_df['Grupper'])
-    mc_in_io_format_df['MissedGroup'] = np.where(mc_export_df['Grupper'].str.contains('Remaining migration'), 'True', 'False') 
-    mc_in_io_format_df = mc_in_io_format_df[mc_in_io_format_df.MissedGroup == "True"]
-    #print(mc_in_io_format_df.head(10))
-    #pass
+    #mc_in_io_format_df['MissedGroup'] = np.where(mc_export_df['Grupper'].str.contains('Remaining migration'), 'True', 'False') 
+    #mc_in_io_format_df = mc_in_io_format_df[mc_in_io_format_df.MissedGroup == "True"]
 
-#    mc_in_io_format_df['Ta bort GruppID'] = mc_export_df[''] # TODO
+#    mc_in_io_format_df['Ta bort GruppID'] = mc_export_df[''] 
 
     # 2. Compare MC data with current IO data
     # Todo
@@ -571,7 +567,6 @@ def sync_last_ones(mc_file_name, mc_invoice_file, io_file_name):
     """
     Export last ones from My Club to IO.
     - Those which have incomplete personnummer
-    - Those who failed in first import ("Remaining migration" in My Club)
     """
     # Get data from latest MC export
     mc_read_df = pd.read_excel(mc_file_name, 
@@ -639,7 +634,7 @@ def sync_last_ones(mc_file_name, mc_invoice_file, io_file_name):
 print(" Start ".center(80, "-"))
 # Export-1 - Move non-existing members in IO from MC to IO
 # Use conver_members.sh
-from_mc_to_io(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
+#from_mc_to_io(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
 
 # Export-2 - Update IO members in IO with newer e-mails from MC
 # Use update_email.sh
@@ -655,7 +650,6 @@ from_mc_to_io(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
 
 # Fix special fields as well
 # sync_special_fields_from_mc_to_io(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
-
 
 # Export-4 - All with incomplete personnummer and 5-6 earlier failed imports
 sync_last_ones(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
