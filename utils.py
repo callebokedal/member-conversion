@@ -1,4 +1,5 @@
-# Utility functions
+# pylint: disable=import-error
+# # Utility functions
 import re
 import pandas as pd
 import numpy as np
@@ -79,6 +80,7 @@ def convert_mc_groups_to_io_groups(groups_str):
         group_id = one_mc_groupto_io(grp)
         if group_id:
             result.append(group_id)
+    # result.append('580588') # Add MC_OfullstPnr
     if len(result) > 0:
         return ", ".join(result)
     else:
@@ -157,12 +159,14 @@ def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_
     Concatinate special columns into one, comma-separated list of strings
     """
     if pd.isna(groups):
+        print(groups)
         groups = ""
         result = [ str.strip(grp) for grp in groups.split(",") ]
     else:
         result = []
-    #result.append("579010") # Always append MC_Import
-    result.append("579873") # MC_Uppdaterad
+    result.append("579010") # Always append MC_Import
+    #result.appen("580600") # MC_Alla
+    #result.append("579873") # MC_Uppdaterad
     if cirkusutb == "Ja":
         result.append("579058") # MC_Cirkusledarutbildning
     if frisksportlofte == "Ja":
@@ -184,9 +188,9 @@ def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_
     if avgift == "Medlemsavgift 2020":
         result.append("579384") # MC_Medlemsavgift_2020
 
-    result.sort()
+    #result.sort()
     if len(result) > 0:
-        r = ", ".join(result)
+        #r = ", ".join(result)
         #print(r)
         return ", ".join(result)
     else:
@@ -227,3 +231,133 @@ def mc_family_to_id(name):
 #print(mc_family_to_id("Whatever [24151]"))
 #print(mc_family_to_id("Foo [14202]"))
 #print(mc_family_to_id("Not there [1234567]"))
+
+"""
+Columns that are used when comparing MC and IO
+Not "important" columns are commented out
+"""
+compare_mc_columns = [
+'Förnamn',
+'Efternamn',
+#'För- och efternamn',
+'Personnummer',
+'Födelsedatum (YYYY-MM-DD)',
+#'LMA/Samordningsnummer',
+#'Ålder',
+'Kön (flicka/pojke)',
+#'Kön (W/M)',
+'Nationalitet',
+#'c/o',
+#'Adress',
+#'Postnummer',
+#'Postort',
+#'Land',
+#'Hemtelefon',
+#'Mobiltelefon',
+#'Arbetstelefon',
+'E-post',
+#'Medlemstyp',
+'MedlemsID',
+#'Ständig medlem',
+'Datum registrerad',
+#'Senast ändrad',
+#'Autogiromedgivande',
+'Kommentar',
+#'Aktiviteter totalt',
+#'Aktiviteter år 2020',
+#'Aktiviteter år 2019',
+#'Aktiviteter år 2018',
+#'Aktiviteter år 2017',
+#'Aktiviteter år 2016',
+'Grupper',
+#'Alla grupper',
+#'Roller',
+#'Gruppkategorier',
+#'Föreningsnamn',
+'Familj',
+#'Medlemsavgift 2011',
+#'Medlemsavgift 2007',
+#'Medlemsavgift 2008',
+#'Medlemsavgift 2009',
+#'Medlemsavgift 2010',
+#'Medlemsavgift 2012',
+#'Medlemsavgift 2013',
+#'Medlemsavgift 2014',
+#'Medlemsavgift 2015 - Ny',
+#'Medlemsavgift 2016',
+#'Medlemsavgift 2017',
+#'Medlemsavgift 2018',
+#'Medlemsavgift 2019',
+#'Medlemsavgift 2020',
+#'Medlemsavgift 2021',
+#'Allergier',
+'Cirkusledarutbildning',
+'Cirkusskoleledare',
+'Friluftslivsledarutbildning',
+'Frisksportlöfte',
+'Har frisksportmail',
+'Hedersmedlem',
+'Ingen tidning tack',
+'Klätterledarutbildning',
+'Frisksportutbildning',
+'Trampolinutbildning'#,
+#'Utmärkelse',
+#'Belastningsregisterutdrag OK',
+#'Kontakt 1 förnamn',
+#'Kontakt 1 efternamn',
+#'Kontakt 1 hemtelefon',
+#'Kontakt 1 mobiltelefon',
+#'Kontakt 1 arbetstelefon',
+#'Kontakt 1 epost'
+]
+
+"""
+Columns that are used when comparing MC and IO
+Not "important" columns are commented out
+"""
+compare_io_columns = [
+#'Typ',
+#'Målsman',
+'Förnamn',
+#'Alt. förnamn',
+'Efternamn',
+'IdrottsID',
+'Födelsedat./Personnr.',
+'Kön',
+#'Nationalitet',
+#'Telefon mobil',
+'E-post kontakt',
+#'Kontaktadress - c/o adress',
+#'Kontaktadress - Gatuadress',
+#'Kontaktadress - Postnummer',
+#'Kontaktadress - Postort',
+#'Kontaktadress - Land',
+#'Folkbokföring - c/o adress',
+#'Folkbokföring - Gatuadress',
+#'Folkbokföring - Postnummer',
+#'Folkbokföring - Postort',
+#'Folkbokföring - Land',
+#'Folkbokföring - Kommunkod',
+#'Folkbokföring - Kommun',
+#'Arbetsadress - c/o adress',
+#'Arbetsadress - Gatuadress',
+#'Arbetsadress - Postnummer',
+#'Arbetsadress - Postort',
+#'Arbetsadress - Land',
+#'Telefon bostad',
+#'Telefon arbete',
+#'E-post privat',
+#'E-post arbete',
+#'Roller',
+#'Behörighet',
+'Övrig medlemsinfo',
+'Grupp/Lag/Arbetsrum/Familj',
+#'Familj',
+#'Fam.Admin',
+'Medlemsnr.',
+'Medlem sedan',
+'Medlem t.o.m.',
+#'Organisation',
+'Registreringsdatum',
+'Avslutningsdatum',
+]

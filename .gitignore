@@ -1,6 +1,7 @@
 my-club
 io
-files
+files/
+files-last/
 docs
 handle_s.py
 families.py
@@ -8,7 +9,9 @@ convert_members.sh
 update_email.sh
 sync_groups.sh
 sync_specials.sh
+sync_last.sh
 check_status.sh
+flask.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

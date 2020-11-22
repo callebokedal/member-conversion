@@ -35,7 +35,9 @@ def validate_file(file_name, nr):
     if not str(fpath).startswith(path):
         sys.exit("Illegal file path (" + str(int(nr)) + ")")
 
-path = '/usr/src/app/files/' # Required base path
+path = '/usr/src/app/files/'            # Required base path
+path_out = '/usr/src/app/files-last/'   # Output path
+
 #if len(sys.argv) < 4:
 #    sys.exit("Illegal input arguments. Usage: convert_members.py <exported My Club members file> <exported My Club invoices file> <exported IO members file> [<e-mail file>]")
 if len(sys.argv) > 1:
@@ -99,6 +101,8 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
         'Cirkusledarutbildning','Cirkusskoleledare','Friluftslivsledarutbildning','Frisksportlöfte','Har frisksportmail','Hedersmedlem',
         'Ingen tidning tack','Klätterledarutbildning','Frisksportutbildning','Trampolinutbildning','Utmärkelse','Belastningsregisterutdrag OK',
         'Kontakt 1 förnamn','Kontakt 1 efternamn','Kontakt 1 hemtelefon','Kontakt 1 mobiltelefon','Kontakt 1 arbetstelefon','Kontakt 1 epost']
+    if False:
+        print(mc_export_df_cols)
 
     # IO Import columns - for ref
     io_import_cols = ['Prova-på','Förnamn','Alt. förnamn','Efternamn','Kön','Nationalitet','IdrottsID','Födelsedat./Personnr.','Telefon mobil',
@@ -221,7 +225,6 @@ def from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
 
     # Filter - only with full personnummer
     for_io_import_df = for_io_import_df[for_io_import_df['Födelsedat./Personnr.'].str.len() > 8]
-
 
     # Filter - only MC
     for_io_import_df = for_io_import_df[for_io_import_df['_merge'] == "right_only" ]
@@ -353,6 +356,23 @@ def sync_special_fields_from_mc_to_io(mc_file_name, mc_invoice_file, io_file_nam
     # Merge in invoice details
     mc_read_df = mc_read_df.merge(mc_invoice_df, on='MedlemsID', how='left', suffixes=(None,'_inv'), validate = "one_to_one")
     
+    # Add missing, neccessary for import, columns - as nan
+    mc_read_df[['Prova-på', 'Ta bort GruppID']] = np.nan
+    mc_read_df['Lägg till GruppID'] = ""
+
+    # Also - add ONLY special columns as groupIDs
+    # Be sure to uodate via import, DON'T overwrite
+    mc_read_df['Lägg till GruppID'] = [
+        concat_special_cols("", cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift) 
+                            for cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift
+        in zip(mc_read_df['Cirkusledarutbildning'], 
+            mc_read_df['Frisksportlöfte'], 
+            mc_read_df['Hedersmedlem'], 
+            mc_read_df['Ingen tidning tack'], 
+            mc_read_df['Frisksportutbildning'], 
+            mc_read_df['Trampolinutbildning'], 
+            mc_read_df['Avgift'])]
+
     # Get data from latest IO export
     io_read_df = pd.read_excel(io_file_name, 
         #usecols= io_read_cols,
@@ -384,17 +404,6 @@ def sync_special_fields_from_mc_to_io(mc_file_name, mc_invoice_file, io_file_nam
     merged_df = merged_df[merged_df['Grupp/Lag/Arbetsrum/Familj'].str.contains('MC_Import', na="") != True]
     stats("Antal med ursprung från MC: {}".format(str(len(merged_df))))
 
-    # Add missing, neccessary for import, columns - as nan
-    merged_df[['Prova-på', 'Ta bort GruppID']] = np.nan
-    merged_df['Lägg till GruppID'] = ""
-
-    # Also - add special columns as groupIDs
-    merged_df['Lägg till GruppID'] = [concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift) 
-        for groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift
-        in zip(merged_df['Lägg till GruppID'], mc_read_df['Cirkusledarutbildning'], mc_read_df['Frisksportlöfte'], 
-            mc_read_df['Hedersmedlem'], mc_read_df['Ingen tidning tack'], mc_read_df['Frisksportutbildning'], 
-            mc_read_df['Trampolinutbildning'], mc_read_df['Avgift'])]
-
     # Convert MC groups to IO GroupID's
     # Already done... in earlier export
     # merged_df['Lägg till GruppID'] = merged_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
@@ -413,7 +422,7 @@ def sync_special_fields_from_mc_to_io(mc_file_name, mc_invoice_file, io_file_nam
         'Familj', 'Fam.Admin', 'Lägg till GruppID', 'Ta bort GruppID']
     merged_df = merged_df[export_cols]
 
-    sync_specials_filename = path + timestamp + '_sync_specials_update.xlsx'
+    sync_specials_filename = path_out + timestamp + '_sync_specials_update.xlsx'
     save_file(sync_specials_filename, merged_df)
     stats("Antal att uppdatera i IO: {} ({})".format(str(len(merged_df)), Path(sync_specials_filename).name))
 
@@ -578,6 +587,17 @@ def sync_last_ones(mc_file_name, mc_invoice_file, io_file_name):
             'Postnummer':convert_postnr, 'Postort':normalize_postort}) # MC Columns
     stats("Antal inlästa från MC: {:>4} ({})".format(str(len(mc_read_df)), Path(mc_file_name).name))
 
+    # Invoice info from My Club
+    mc_invoice_df = pd.read_excel(mc_invoice_file,  
+        dtype = {'MedlemsID': 'string'}, 
+        usecols=['MedlemsID','Avgift','Summa','Summa betalt',
+            'Familjemedlem 1','Familjemedlem 2','Familjemedlem 3','Familjemedlem 4','Familjemedlem 5','Familjemedlem 6'])
+    stats("Antal fakturor i MC:  {} ({})".format(str(len(mc_invoice_df)), Path(mc_invoice_file).name))
+    # Merge in invoice details
+    # Added later as special column
+    # TODO Only for family head and not each person
+    mc_read_df = mc_read_df.merge(mc_invoice_df, on='MedlemsID', how='left', suffixes=(None,'_inv'), validate = "one_to_one")
+
     # Get data from latest IO export
     io_read_df = pd.read_excel(io_file_name, 
         #usecols= io_read_cols,
@@ -599,11 +619,11 @@ def sync_last_ones(mc_file_name, mc_invoice_file, io_file_name):
     stats("Antal med  fullständiga personnummer I IO: {:>4}".format(str(len(io_read_df[io_read_df['Födelsedat./Personnr.'].str.len() == 13]))))
 
     # Merge on all 'Personnummer','Förnamn','Efternamn'
-    print("MC " + "> Merge <".center(19, "-") + " IO")
+    print("MC " + "> Merge (left: pnr+fn+en) <".center(40, "-") + " IO")
     merged_df = pd.merge(mc_read_df, io_read_df,
         left_on = ['Personnummer','Förnamn','Efternamn'],
         right_on = ['Födelsedat./Personnr.','Förnamn','Efternamn'],
-        how = 'outer',
+        how = 'left',
         suffixes = ('_mc','_io'),
         indicator = True)
     stats("Antal efter merge: {:>8}".format(str(len(merged_df))))
@@ -611,23 +631,100 @@ def sync_last_ones(mc_file_name, mc_invoice_file, io_file_name):
 
     # Number of members with complete personnummer
     stats("Antal med  fullständiga personnummer: {:>4}".format(str(len(merged_df[merged_df['Personnummer'].str.len() == 13]))))
+    stats("Antal med ofullständiga personnummer: {:>4}".format(str(len(merged_df[merged_df['Personnummer'].str.len() == 8]))))
 
-    # Filter away members with complete 'personnummer'
-    merged_df = merged_df[merged_df['Personnummer'].str.len() == 13]
-    stats("Antal med ofullständiga personnummer: {:>4}".format(str(len(merged_df))))
+    # Filter only on members with incomplete 'personnummer'
+    print(" Filter: Endast ofullständiga ".center(46, "-"))
+    #merged_df = merged_df[merged_df['Personnummer'].str.len() == 8]
+    #stats("Antal med ofullständiga personnummer: {:>4}".format(str(len(merged_df))))
+
+    stats("Antal endast i MC: {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'left_only' ]))))
+    stats("Antal endast i IO: {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'right_only' ]))))
+    stats("Antal i båda:      {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'both' ]))))
 
     # Filter away those originating from MC (= have group "MC_Import")
     #merged_df = merged_df[merged_df['Grupp/Lag/Arbetsrum/Familj'].str.contains('MC_Import', na="") != True]
     #stats("Antal utan MC-grupper i IO: {:>3}".format(str(len(merged_df))))
 
+    # Convert to import format
+
+    # IO Import columns - for ref
+    io_import_cols = ['Prova-på','Förnamn','Alt. förnamn','Efternamn','Kön','Nationalitet','IdrottsID','Födelsedat./Personnr.','Telefon mobil',
+        'E-post kontakt','Kontaktadress - c/o adress','Kontaktadress - Gatuadress','Kontaktadress - Postnummer','Kontaktadress - Postort',
+        'Kontaktadress - Land','Arbetsadress - c/o adress','Arbetsadress - Gatuadress','Arbetsadress - Postnummer','Arbetsadress - Postort','Arbetsadress - Land',
+        'Telefon bostad','Telefon arbete','E-post privat','E-post arbete','Medlemsnr.','Medlem sedan','Medlem t.o.m.','Övrig medlemsinfo',
+        'Familj','Fam.Admin','Lägg till GruppID','Ta bort GruppID']
+
+    # 1. Convert all MC members to IO Import format
+    mc_in_io_format_df = pd.DataFrame(columns=io_import_cols)
+#    mc_in_io_format_df['Prova-på'] = mc_export_df['']  # Not used in MC?
+    mc_in_io_format_df['Förnamn'] = merged_df['Förnamn']
+#    mc_in_io_format_df['Alt. förnamn'] = mc_export_df['']  # Found none in MC
+    mc_in_io_format_df['Efternamn'] = merged_df['Efternamn']
+    mc_in_io_format_df['Kön'] = merged_df['Kön (flicka/pojke)']
+    mc_in_io_format_df['Nationalitet'] = merged_df['Nationalitet_mc'].replace('SE','Sverige')
+#    mc_in_io_format_df['IdrottsID'] = mc_export_df[''] 
+    mc_in_io_format_df['Födelsedat./Personnr.'] = merged_df['Personnummer'] #.astype('string').apply(convert_personnummer) 
+    mc_in_io_format_df['Telefon mobil'] = merged_df['Mobiltelefon']
+    mc_in_io_format_df['E-post kontakt'] = merged_df['E-post'] 
+    mc_in_io_format_df['Kontaktadress - c/o adress'] = merged_df['c/o']
+    mc_in_io_format_df['Kontaktadress - Gatuadress'] = merged_df['Adress']
+    mc_in_io_format_df['Kontaktadress - Postnummer'] = merged_df['Postnummer'].astype('string').apply(convert_postnr)
+    mc_in_io_format_df['Kontaktadress - Postort'] = merged_df['Postort']
+    mc_in_io_format_df['Kontaktadress - Land'] = merged_df['Land'].apply(convert_countrycode)
+#    mc_in_io_format_df['Arbetsadress - c/o adress'] = mc_export_df['']
+#    mc_in_io_format_df['Arbetsadress - Gatuadress'] = mc_export_df['']
+#    mc_in_io_format_df['Arbetsadress - Postnummer'] = mc_export_df['']
+#    mc_in_io_format_df['Arbetsadress - Postort'] = mc_export_df['']
+#    mc_in_io_format_df['Arbetsadress - Land'] = mc_export_df['']
+    mc_in_io_format_df['Telefon bostad'] = merged_df['Hemtelefon']
+    mc_in_io_format_df['Telefon arbete'] = merged_df['Arbetstelefon']
+#    mc_in_io_format_df['E-post privat'] = mc_export_df['Kontakt 1 epost']
+#    mc_in_io_format_df['E-post arbete'] = mc_export_df['']
+    
+    mc_in_io_format_df['Medlem sedan'] = merged_df['Datum registrerad']
+    mc_in_io_format_df['MC_Senast ändrad'] = merged_df['Senast ändrad']
+#    mc_in_io_format_df['Medlem t.o.m.'] = mc_export_df['']
+    mc_in_io_format_df['Övrig medlemsinfo'] = merged_df['Kommentar'].astype('string').apply(clean_pii_comments) # Special handling - not for all clubs
+    # Add special info to 'Övrig medlemsinfo' - MC MedlemsInfo and execution time
+    mc_in_io_format_df['Övrig medlemsinfo'] = [add_comment_info(comment, member_id, timestamp)
+        for comment, member_id
+        in zip(mc_in_io_format_df['Övrig medlemsinfo'] , merged_df['MedlemsID'])]
+
+#   mc_in_io_format_df['Familj'] = mc_export_df['Familj']
+#   mc_in_io_format_df['Fam.Admin'] = mc_export_df[''] 
+    mc_in_io_format_df['Lägg till GruppID'] = merged_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
+    # Also - add special columns as groupIDs
+    mc_in_io_format_df['Lägg till GruppID'] = [concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift) 
+        for groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift
+        in zip(mc_in_io_format_df['Lägg till GruppID'], merged_df['Cirkusledarutbildning'], merged_df['Frisksportlöfte'], 
+            merged_df['Hedersmedlem'], merged_df['Ingen tidning tack'], merged_df['Frisksportutbildning'], 
+            merged_df['Trampolinutbildning'], merged_df['Avgift'])]
+    # Also - add family info as groups
+    # 2020-11-15 Disabled - since IO does not handle this according to documentation...
+    if False:
+        merged_df['Familj'] = merged_df['Familj'].apply(mc_family_to_id)
+        mc_in_io_format_df['Lägg till GruppID'] = [concat_group_id(groups, family_id) 
+            for groups, family_id 
+            in zip(mc_in_io_format_df['Lägg till GruppID'], merged_df['Familj'])]
+
+    # Extra info
+    mc_in_io_format_df['_merge'] = merged_df['_merge']
+
     # Add missing, neccessary for import, columns - as nan
-    merged_df[['Prova-på', 'Ta bort GruppID']] = np.nan
+    mc_in_io_format_df[['Prova-på', 'Ta bort GruppID']] = np.nan
+    #merged_df[['Prova-på', 'Ta bort GruppID']] = np.nan
+    #print(merged_df['Grupper'].head())
 
-    # Convert MC groups to IO GroupID's
-    merged_df['Lägg till GruppID'] = merged_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
+    # Req. for incomplete personnummer:
+    # "namn, födelsedatum (år, månad, dag), kön, nationalitet och minst en angiven adress"
 
-
-    print(merged_df['Grupper'].head())
+    last_filename = path_out + timestamp + '_2-err_import.xlsx'
+    save_file(last_filename, mc_in_io_format_df)
+    #print(mc_in_io_format_df)
+    #save_file(last_filename, merged_df)
+    stats("Antal kvar att uppdatera: {:>5} ({})".format(str(len(mc_in_io_format_df)), Path(last_filename).name))
+    #stats("Antal kvar att uppdatera: {:>5} ({})".format(str(len(merged_df)), Path(last_filename).name))
 
 
 # Action 
@@ -649,9 +746,9 @@ print(" Start ".center(80, "-"))
 # check_status(exp_mc_members_file, exp_io_members_file)
 
 # Fix special fields as well
-# sync_special_fields_from_mc_to_io(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
+#sync_special_fields_from_mc_to_io(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
 
-# Export-4 - All with incomplete personnummer and 5-6 earlier failed imports
+# Export-4 - All with incomplete personnummer
 sync_last_ones(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
 
 print ("Tidsåtgång: " + str(round((time.time() - start_time),1)) + " s")
