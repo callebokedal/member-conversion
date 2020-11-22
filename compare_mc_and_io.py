@@ -226,8 +226,8 @@ def compare_mc_and_io(mc_file_name, io_file_name):
 
 
     merged_filename = path_out + timestamp + '_comparison_merge_report.xlsx'
-    #save_file(merged_filename, merged_df)
-    #stats("Saving report: {}".format(merged_filename))
+    save_file(merged_filename, merged_df)
+    stats("Saving report: {}".format(merged_filename))
 
 
 # Action 
