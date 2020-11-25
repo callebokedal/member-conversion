@@ -97,3 +97,52 @@ print(normalize_email("A"))
 print(normalize_email(3))
 print(normalize_email(" B"))
 print(normalize_email(" C ") + ".")
+
+import re
+regex = r"\[\[MC-ID: (\d*)\]\]"
+test_str = ("[[MC-ID: 123]]\n")
+subst = "test"
+
+# You can manually specify the number of replacements by changing the 4th argument
+result = re.sub(regex, subst, test_str, 0, re.MULTILINE)
+
+if result:
+    print (result)
+
+d = re.search(regex, '[[MC-ID: 123]]')
+if d:
+    print(d.group(0))
+    print(d.group(1))
+
+
+d = re.search(regex, '[[MCasdasd-ID: 123]]')
+if d:
+    print(d.group(0))
+    print(d.group(1))
+
+print("---")
+def test_match(comment):
+    regexp = r"^\d{4,}"
+    m = re.match(regexp, comment)
+    if m:
+        print(comment)
+    else:
+        print("no")
+
+test_match("1234")
+test_match("123")
+test_match("1 234")
+
+def test_member_id_in_comment(comment):
+    if re.match(r"\[\[MC-ID: .*", comment):
+        print("Found: " + comment)
+    elif re.match(r"\[\[MedlemsID: .*", comment):
+        print("found: " + comment)
+    else:
+        print("not found: " + comment)
+
+print("---")
+test_member_id_in_comment("[[MC-ID: 1670699]][[Import: 2020-11-22_00.34]]")
+test_member_id_in_comment("[[MedlemsID: 1676673]][[Import: 2020-11-16_01.20]]")
+test_member_id_in_comment("[[MdC-ID: 1670699]][[Import: 2020-11-22_00.34]]")
+test_member_id_in_comment("[[MeddlemsID: 1676673]][[Import: 2020-11-16_01.20]]")

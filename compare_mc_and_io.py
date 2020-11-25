@@ -10,7 +10,7 @@ from time import strftime
 from utils import convert_countrycode, convert_mc_personnummer_to_io, convert_postnr, \
     clean_pii_comments, convert_mc_groups_to_io_groups, normalize_email, concat_special_cols, \
     normalize_postort, mc_family_to_id, concat_group_id, add_comment_info, \
-    compare_mc_columns, compare_io_columns
+    compare_mc_columns, compare_io_columns, convert_io_comment_to_mc_member_id, extract_mc_medlemsid
 
 """
 Script to export members from My Cloud and import in Idrott Online
@@ -37,7 +37,7 @@ def validate_file(file_name, nr):
         sys.exit("Illegal file path (" + str(int(nr)) + ")")
 
 path = '/usr/src/app/files/'            # Required base path
-path_out = '/usr/src/app/files-last/'   # Output path
+path_out = '/usr/src/app/files/last/'   # Output path
 
 if len(sys.argv) > 1:
     cmd  = sys.argv[1]
@@ -196,8 +196,6 @@ def compare_mc_and_io(mc_file_name, io_file_name):
     # MC_FrisksportlöfteNej - 579062
     #stats("Friskportslöfte = Nej i IO: {:>8}".format(str(len(io_read_df.loc[io_read_df['Grupp/Lag/Arbetsrum/Familj'] == 'Nej' ]))))
 
-
-
     # Merge on outer (means everyone)
     stats("MC " + "> Merge (outer: personnummer) <".center(40, "-") + " IO")
     merged_df = pd.merge(mc_read_df, io_read_df,
@@ -215,19 +213,67 @@ def compare_mc_and_io(mc_file_name, io_file_name):
     stats("Antal endast i IO: {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'right_only' ]))))
     stats("Antal i båda:      {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'both' ]))))
 
-    # Find matching members (in both MC and IO)
-    #in_both_df  
-
-    # Find members only in MC
-    #only_mc_df
-
-    # Find members only in IO
-    #only_io_df
-
-
     merged_filename = path_out + timestamp + '_comparison_merge_report.xlsx'
     save_file(merged_filename, merged_df)
     stats("Saving report: {}".format(merged_filename))
+
+    # Add group MC_Alla to everyone in MC and now also IO
+    for_mc_alla_df = pd.merge(mc_read_df, io_read_df,
+        left_on = 'Personnummer',
+        right_on = 'Födelsedat./Personnr.',
+        #left_on = ['Personnummer','Förnamn','Efternamn'],
+        #right_on = ['Födelsedat./Personnr.','Förnamn','Efternamn'],
+        how = 'inner',
+        suffixes = ('_mc','_io'))
+
+    mc_alla_filename = path_out + timestamp + '_mc_alla_report.xlsx'
+    save_file(mc_alla_filename, merged_df)
+    stats("Saving MC_Alla report: {}".format(mc_alla_filename))
+
+def compare_persons(mc_file_name, io_file_name):
+    """
+    Compare persons by personnummer, firstname and lastname
+    """
+    mc_read_df = pd.read_excel(mc_file_name, 
+        usecols = ['Förnamn','Efternamn','Personnummer','MedlemsID'],
+        #dtype = {'Personnummer': 'string'},
+        converters = {'Personnummer':convert_mc_personnummer_to_io}) 
+    stats("Antal inlästa från MC: {:>4} ({})".format(str(len(mc_read_df)), Path(mc_file_name).name))
+
+    io_read_df = pd.read_excel(io_file_name, 
+        usecols = ['Förnamn','Efternamn','Födelsedat./Personnr.','Övrig medlemsinfo', 'Medlemsnr.'],
+        #usecols = ['Förnamn','Efternamn','IdrottsID','Födelsedat./Personnr.'],
+        #dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+        #    'Medlemsnr.': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
+        converters = {'Personnummer':convert_mc_personnummer_to_io,
+         'Övrig medlemsinfo':convert_io_comment_to_mc_member_id,
+         'Medlemsnr.':extract_mc_medlemsid})
+    # Renamne column
+    io_read_df.rename(columns = {'Födelsedat./Personnr.':'Personnummer', 'Övrig medlemsinfo':'MedlemsID'}, inplace = True) 
+
+    stats("Antal inlästa från IO: {:>4} ({})".format(str(len(io_read_df)), Path(io_file_name).name))
+
+    if True:
+        merged_df = pd.merge(mc_read_df, io_read_df,
+            #left_on = 'Personnummer',
+            #right_on = 'Födelsedat./Personnr.',
+            left_on = ['Personnummer','Förnamn','Efternamn'],
+            #right_on = ['Födelsedat./Personnr.','Förnamn','Efternamn'],
+            right_on = ['Personnummer','Förnamn','Efternamn'],
+            how = 'outer',
+            suffixes = ('_mc','_io'),
+            indicator = True)
+        #print(merged_df.head())
+
+        merged_df['Kopior'] = merged_df.duplicated(keep=False)
+
+        stats("Antal endast i MC: {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'left_only' ]))))
+        stats("Antal endast i IO: {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'right_only' ]))))
+        stats("Antal i båda:      {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'both' ]))))
+
+        compare_persons_file = path_out + timestamp + '_compare_persons.xlsx'
+        save_file(compare_persons_file, merged_df)
+        stats("Saved compare persons report: {}".format(compare_persons_file))
 
 
 # Action 
@@ -235,6 +281,8 @@ print(" Start ".center(80, "-"))
 
 if "compare" == cmd:
     compare_mc_and_io(mc_file, io_file)
+elif "compare_persons" == cmd:
+    compare_persons(mc_file, io_file)
 
 print ("Tidsåtgång: " + str(round((time.time() - start_time),1)) + " s")
 print((" Klart (" + strftime("%Y-%m-%d %H:%M") + ") ").center(80, "-"))

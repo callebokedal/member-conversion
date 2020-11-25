@@ -36,25 +36,28 @@ def validate_file(file_name, nr):
         sys.exit("Illegal file path (" + str(int(nr)) + ")")
 
 path = '/usr/src/app/files/'            # Required base path
-path_out = '/usr/src/app/files-last/'   # Output path
+path_out = '/usr/src/app/files/last/'   # Output path
 
 #if len(sys.argv) < 4:
 #    sys.exit("Illegal input arguments. Usage: convert_members.py <exported My Club members file> <exported My Club invoices file> <exported IO members file> [<e-mail file>]")
 if len(sys.argv) > 1:
-    exp_mc_members_file  = sys.argv[1]
-    validate_file(exp_mc_members_file, 1)
+    cmd  = sys.argv[1]
 
 if len(sys.argv) > 2:
-    exp_mc_invoices_file = sys.argv[2]
-    validate_file(exp_mc_invoices_file, 2)
+    exp_mc_members_file  = sys.argv[2]
+    validate_file(exp_mc_members_file, 2)
 
 if len(sys.argv) > 3:
-    exp_io_members_file  = sys.argv[3] 
-    validate_file(exp_io_members_file, 3)
+    exp_mc_invoices_file = sys.argv[3]
+    validate_file(exp_mc_invoices_file, 3)
 
 if len(sys.argv) > 4:
-    cg_email_file = sys.argv[4]
-    validate_file(cg_email_file, 4)
+    exp_io_members_file  = sys.argv[4] 
+    validate_file(exp_io_members_file, 4)
+
+if len(sys.argv) > 5:
+    cg_email_file = sys.argv[5]
+    validate_file(cg_email_file, 5)
 
 def save_file(file_name, df):
     """
@@ -463,11 +466,11 @@ def sync_groups_from_mc_to_io(mc_file_name, io_file_name):
     stats("Antal lika (på personnummer): {}".format(str(len(merged_df))))
 
     # Filter away members with incomplete 'personnummer'
-    merged_df = merged_df[merged_df['Personnummer'].str.len() == 13]
+    #merged_df = merged_df[merged_df['Personnummer'].str.len() == 13]
     stats("Antal med fullständiga personnummer: {}".format(str(len(merged_df))))
 
     # Filter away those originating from MC (= have group "MC_Import")
-    merged_df = merged_df[merged_df['Grupp/Lag/Arbetsrum/Familj'].str.contains('MC_Import', na="") != True]
+    #merged_df = merged_df[merged_df['Grupp/Lag/Arbetsrum/Familj'].str.contains('MC_Import', na="") != True]
     stats("Antal utan MC-grupper i IO: {}".format(str(len(merged_df))))
 
     # Add missing, neccessary for import, columns - as nan
@@ -476,9 +479,10 @@ def sync_groups_from_mc_to_io(mc_file_name, io_file_name):
     # Convert MC groups to IO GroupID's
     merged_df['Lägg till GruppID'] = merged_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
 
-    # Add special group 'MC_GruppViaMC'
-    # We know that all groups are non-empty, we can just add a the end
-    merged_df['Lägg till GruppID'] = merged_df['Lägg till GruppID'].apply(lambda x : x + ', 580242')
+    # Add special group 'MC_GruppViaMC' 580242
+    # Add MC_Alla (580600)
+    # We know that all groups are non-empty, we can just add at the end
+    merged_df['Lägg till GruppID'] = merged_df['Lägg till GruppID'].apply(lambda x : x + ', 580600')
 
     # Retain columns to be used for import only
     export_cols = ['Prova-på', 'Förnamn', 'Alt. förnamn', 'Efternamn', 'Kön', 'Nationalitet', 'IdrottsID', 
@@ -494,6 +498,19 @@ def sync_groups_from_mc_to_io(mc_file_name, io_file_name):
     save_file(sync_groups_filename, merged_df)
     stats("Antal att uppdatera i IO: {} ({})".format(str(len(merged_df)), Path(sync_groups_filename).name))
 
+def _read_mc_file(file_name):
+    """
+    Read from MC file and return dataframe
+    """
+    return pd.read_excel(file_name, 
+        dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+            'MedlemsID': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
+        converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
+            'Personnummer':convert_mc_personnummer_to_io, 
+            'Kontakt 1 epost':normalize_email, 
+            'Postnummer':convert_postnr, 'Postort':normalize_postort}) # MC Columns
+
+
 def check_status(mc_file_name, io_file_name):
     """
     Check status between MC and IO
@@ -501,13 +518,7 @@ def check_status(mc_file_name, io_file_name):
     NOTE! This function is probably not correct all the way to the end righ now
     """
     # Get data from latest MC export
-    mc_read_df = pd.read_excel(mc_file_name, 
-        dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
-            'MedlemsID': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
-        converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
-            'Personnummer':convert_mc_personnummer_to_io, 
-            'Kontakt 1 epost':normalize_email, 
-            'Postnummer':convert_postnr, 'Postort':normalize_postort}) # MC Columns
+    mc_read_df = _read_mc_file(mc_file_name)
     stats("Antal inlästa från MC: {:>4} ({})".format(str(len(mc_read_df)), Path(mc_file_name).name))
 
     # Get data from latest IO export
@@ -578,13 +589,7 @@ def sync_last_ones(mc_file_name, mc_invoice_file, io_file_name):
     - Those which have incomplete personnummer
     """
     # Get data from latest MC export
-    mc_read_df = pd.read_excel(mc_file_name, 
-        dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
-            'MedlemsID': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
-        converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
-            'Personnummer':convert_mc_personnummer_to_io, 
-            'Kontakt 1 epost':normalize_email, 
-            'Postnummer':convert_postnr, 'Postort':normalize_postort}) # MC Columns
+    mc_read_df = _read_mc_file(mc_file_name)
     stats("Antal inlästa från MC: {:>4} ({})".format(str(len(mc_read_df)), Path(mc_file_name).name))
 
     # Invoice info from My Club
@@ -595,7 +600,6 @@ def sync_last_ones(mc_file_name, mc_invoice_file, io_file_name):
     stats("Antal fakturor i MC:  {} ({})".format(str(len(mc_invoice_df)), Path(mc_invoice_file).name))
     # Merge in invoice details
     # Added later as special column
-    # TODO Only for family head and not each person
     mc_read_df = mc_read_df.merge(mc_invoice_df, on='MedlemsID', how='left', suffixes=(None,'_inv'), validate = "one_to_one")
 
     # Get data from latest IO export
@@ -613,10 +617,10 @@ def sync_last_ones(mc_file_name, mc_invoice_file, io_file_name):
     stats("Antal inlästa från IO: {:>4} ({})".format(str(len(io_read_df)), Path(io_file_name).name))
 
     # Stats about personnummer
-    stats("Antal med ofullständiga personnummer I MC: {:>4}".format(str(len(mc_read_df[mc_read_df['Personnummer'].str.len() == 8]))))
-    stats("Antal med ofullständiga personnummer I IO: {:>4}".format(str(len(io_read_df[io_read_df['Födelsedat./Personnr.'].str.len() == 8]))))
-    stats("Antal med  fullständiga personnummer I MC: {:>4}".format(str(len(mc_read_df[mc_read_df['Personnummer'].str.len() == 13]))))
-    stats("Antal med  fullständiga personnummer I IO: {:>4}".format(str(len(io_read_df[io_read_df['Födelsedat./Personnr.'].str.len() == 13]))))
+    stats("Antal med ofullständiga personnummer I MC: {:>4} st".format(str(len(mc_read_df[mc_read_df['Personnummer'].str.len() == 8]))))
+    stats("Antal med ofullständiga personnummer I IO: {:>4} st".format(str(len(io_read_df[io_read_df['Födelsedat./Personnr.'].str.len() == 8]))))
+    stats("Antal med  fullständiga personnummer I MC: {:>4} st".format(str(len(mc_read_df[mc_read_df['Personnummer'].str.len() == 13]))))
+    stats("Antal med  fullständiga personnummer I IO: {:>4} st".format(str(len(io_read_df[io_read_df['Födelsedat./Personnr.'].str.len() == 13]))))
 
     # Merge on all 'Personnummer','Förnamn','Efternamn'
     print("MC " + "> Merge (left: pnr+fn+en) <".center(40, "-") + " IO")
@@ -719,37 +723,41 @@ def sync_last_ones(mc_file_name, mc_invoice_file, io_file_name):
     # Req. for incomplete personnummer:
     # "namn, födelsedatum (år, månad, dag), kön, nationalitet och minst en angiven adress"
 
-    last_filename = path_out + timestamp + '_2-err_import.xlsx'
+    last_filename = path_out + timestamp + '_5-err_import.xlsx'
     save_file(last_filename, mc_in_io_format_df)
     #print(mc_in_io_format_df)
     #save_file(last_filename, merged_df)
     stats("Antal kvar att uppdatera: {:>5} ({})".format(str(len(mc_in_io_format_df)), Path(last_filename).name))
     #stats("Antal kvar att uppdatera: {:>5} ({})".format(str(len(merged_df)), Path(last_filename).name))
 
-
 # Action 
 print(" Start ".center(80, "-"))
 # Export-1 - Move non-existing members in IO from MC to IO
-# Use conver_members.sh
-#from_mc_to_io(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
+# Use convert_members.sh
+if "convert" == cmd:
+    from_mc_to_io(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
 
 # Export-2 - Update IO members in IO with newer e-mails from MC
 # Use update_email.sh
-# update_io_email_from_mc(exp_io_members_file, cg_email_file)
+if "update_email" == cmd:
+    update_io_email_from_mc(exp_io_members_file, cg_email_file)
 
 # Export-3 - Map groups in MC and IO 
 # Use sync_groups.sh
-#sync_groups_from_mc_to_io(exp_mc_members_file, exp_io_members_file)
+if "sync_groups" == cmd:
+    sync_groups_from_mc_to_io(exp_mc_members_file, exp_io_members_file)
 
 # Check the rest
 # TODO Check member with non-complete personnummer
-# check_status(exp_mc_members_file, exp_io_members_file)
+if "check_status" == cmd:
+    check_status(exp_mc_members_file, exp_io_members_file)
 
 # Fix special fields as well
 #sync_special_fields_from_mc_to_io(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
 
 # Export-4 - All with incomplete personnummer
-sync_last_ones(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
+if "sync_last" == cmd:
+    sync_last_ones(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
 
 print ("Tidsåtgång: " + str(round((time.time() - start_time),1)) + " s")
 print((" Klart (" + strftime("%Y-%m-%d %H:%M") + ") ").center(80, "-"))

@@ -147,12 +147,47 @@ def add_comment_info(comment, medlems_id, timestamp):
     """
     Append comment field with special info about MedlemsID and timestamp note
     """
+    # TODO: if MedlemsID in other column -> ?
+    if re.match(r"\[\[MC-ID: .*", comment): # MC-ID already in comment
+        return comment
+    elif re.match(r"\[\[MedlemsID: .*", comment): # MedlemsID already in comment
+        return comment
+
     end = "[[MC-ID: {}]][[Import: {}]]".format(str(medlems_id), timestamp)
     if pd.isna(comment):
         comment = end
     else:
         comment = "{} {}".format(comment, end)
     return comment
+
+def convert_io_comment_to_mc_member_id(comment):
+    """
+    Convert comment to MC MemberID
+    """
+    regexp = r"\[\[MC-ID: (\d*)\]\]"    #  
+    regexp2 = r"\[\[MedlemsID: (\d*)\]\]"   # 
+    match = re.search(regexp, comment)
+
+    if match:
+        # MC-ID
+        return match.group(1)
+    else:
+        # MedlemsID 
+        match = re.search(regexp2, comment)
+        if match:
+            return match.group(1)
+    return "" # Default
+
+def extract_mc_medlemsid(medlemsnr):
+    """
+    Return valid MC MedlemsID or ""
+    """
+    regexp = r"^\d{4,}"
+    m = re.match(regexp, medlemsnr)
+    if m:
+        return medlemsnr
+    else:
+        return ""
 
 def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift):
     """
@@ -164,8 +199,8 @@ def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_
         result = [ str.strip(grp) for grp in groups.split(",") ]
     else:
         result = []
-    result.append("579010") # Always append MC_Import
-    #result.appen("580600") # MC_Alla
+    #result.append("579010") # Always append MC_Import
+    result.append("580600") # MC_Alla
     #result.append("579873") # MC_Uppdaterad
     if cirkusutb == "Ja":
         result.append("579058") # MC_Cirkusledarutbildning
