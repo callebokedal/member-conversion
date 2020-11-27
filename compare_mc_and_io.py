@@ -10,7 +10,8 @@ from time import strftime
 from utils import convert_countrycode, convert_mc_personnummer_to_io, convert_postnr, \
     clean_pii_comments, convert_mc_groups_to_io_groups, normalize_email, concat_special_cols, \
     normalize_postort, mc_family_to_id, concat_group_id, add_comment_info, \
-    compare_mc_columns, compare_io_columns, convert_io_comment_to_mc_member_id, extract_mc_medlemsid
+    compare_mc_columns, compare_io_columns, convert_io_comment_to_mc_member_id, extract_mc_medlemsid, \
+    _read_mc_file, _read_io_file
 
 """
 Script to export members from My Cloud and import in Idrott Online
@@ -78,14 +79,7 @@ def compare_mc_and_io(mc_file_name, io_file_name):
     """
     # Get "important" data from latest MC export
     # Note! Doesn't read all columns...
-    mc_read_df = pd.read_excel(mc_file_name, 
-        usecols = compare_mc_columns,
-        dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
-            'MedlemsID': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
-        converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
-            'Personnummer':convert_mc_personnummer_to_io, 
-            'Kontakt 1 epost':normalize_email, 
-            'Postnummer':convert_postnr, 'Postort':normalize_postort}) # MC Columns
+    mc_read_df = _read_mc_file(mc_file_name)
     stats("Antal inlästa från MC: {:>4} ({})".format(str(len(mc_read_df)), Path(mc_file_name).name))
 
     #stats("# Information i My Club:")
@@ -139,16 +133,7 @@ def compare_mc_and_io(mc_file_name, io_file_name):
 
     # Get data from latest IO export (and convert some cols to IO format)
     # Note! Doesn't read all columns...
-    io_read_df = pd.read_excel(io_file_name, 
-        usecols = compare_io_columns,
-        dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
-            'Medlemsnr.': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
-        converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
-            'Personnummer':convert_mc_personnummer_to_io, 
-            'Kontakt 1 epost':normalize_email, 
-            'Postnummer':convert_postnr, 
-            'Kontaktadress - Postort':normalize_postort,
-            'Postort':normalize_postort}) # IO Columns
+    io_read_df = _read_io_file(io_file_name, compare_io_columns)
     stats("Antal inlästa från IO: {:>4} ({})".format(str(len(io_read_df)), Path(io_file_name).name))
 
     def print_io_group_stats(label, extra = None):
@@ -241,7 +226,7 @@ def compare_persons(mc_file_name, io_file_name):
     stats("Antal inlästa från MC: {:>4} ({})".format(str(len(mc_read_df)), Path(mc_file_name).name))
 
     io_read_df = pd.read_excel(io_file_name, 
-        usecols = ['Förnamn','Efternamn','Födelsedat./Personnr.','Övrig medlemsinfo', 'Medlemsnr.'],
+        usecols = ['Förnamn','Efternamn','Födelsedat./Personnr.','Övrig medlemsinfo', 'Medlemsnr.', 'Övrig medlemsinfo', 'Grupp/Lag/Arbetsrum/Familj'],
         #usecols = ['Förnamn','Efternamn','IdrottsID','Födelsedat./Personnr.'],
         #dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
         #    'Medlemsnr.': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
@@ -255,23 +240,24 @@ def compare_persons(mc_file_name, io_file_name):
 
     if True:
         merged_df = pd.merge(mc_read_df, io_read_df,
+            on = 'Personnummer',
             #left_on = 'Personnummer',
             #right_on = 'Födelsedat./Personnr.',
-            left_on = ['Personnummer','Förnamn','Efternamn'],
+            #left_on = ['Personnummer','Förnamn','Efternamn'],
             #right_on = ['Födelsedat./Personnr.','Förnamn','Efternamn'],
-            right_on = ['Personnummer','Förnamn','Efternamn'],
+            #right_on = ['Personnummer','Förnamn','Efternamn'],
             how = 'outer',
             suffixes = ('_mc','_io'),
             indicator = True)
         #print(merged_df.head())
 
-        merged_df['Kopior'] = merged_df.duplicated(keep=False)
+        merged_df['Kopior'] = merged_df.duplicated(keep=False) 
 
         stats("Antal endast i MC: {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'left_only' ]))))
         stats("Antal endast i IO: {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'right_only' ]))))
         stats("Antal i båda:      {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'both' ]))))
 
-        compare_persons_file = path_out + timestamp + '_compare_persons.xlsx'
+        compare_persons_file = path_out + timestamp + '_compare__some_persons.xlsx'
         save_file(compare_persons_file, merged_df)
         stats("Saved compare persons report: {}".format(compare_persons_file))
 

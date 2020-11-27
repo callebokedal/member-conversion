@@ -6,6 +6,103 @@ import numpy as np
 
 from families import families
 
+
+def _read_mc_file(file_name):
+    """
+    Read from MC file and return dataframe. Converts incoming data.
+    """
+    return pd.read_excel(file_name, 
+        dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+            'MedlemsID': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
+        converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
+            'Personnummer':convert_mc_personnummer_to_io, 
+            'Kontakt 1 epost':normalize_email, 
+            'Postnummer':convert_postnr, 'Postort':normalize_postort}) # MC Columns
+
+def _read_io_file(file_name, columns = None):
+    """
+    Read from IO file and return dataframe. Converts incoming data.
+    """
+    _dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+            'Medlemsnr.': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'}
+    _converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
+            'Personnummer':convert_mc_personnummer_to_io, 
+            'Kontakt 1 epost':normalize_email, 
+            'Postnummer':convert_postnr, 
+            'Kontaktadress - Postort':normalize_postort,
+            'Postort':normalize_postort}
+    if columns:
+        return pd.read_excel(file_name, 
+            usecols = columns,
+            dtype = _dtype,
+            converters = _converters) 
+    else:
+        return pd.read_excel(file_name,
+            dtype = _dtype,
+            converters = _converters)
+
+def _convert_mc_to_io_format(io_import_cols, mc_format_df, timestamp):
+    """
+    Converts df in MC format to df in IO format
+    """
+    io_format_df = pd.DataFrame(columns=io_import_cols)
+    # io_format_df['Prova-på'] = mc_format_df['']  # Not used in MC?
+    io_format_df['Förnamn'] = mc_format_df['Förnamn']
+    # io_format_df['Alt. förnamn'] = mc_format_df['']  # Found none in MC
+    io_format_df['Efternamn'] = mc_format_df['Efternamn']
+    io_format_df['Kön'] = mc_format_df['Kön (flicka/pojke)']
+    io_format_df['Nationalitet'] = mc_format_df['Nationalitet'].replace('SE','Sverige')
+    # io_format_df['IdrottsID'] = mc_format_df[''] 
+    io_format_df['Födelsedat./Personnr.'] = mc_format_df['Personnummer'] #.astype('string').apply(convert_personnummer) 
+    io_format_df['Telefon mobil'] = mc_format_df['Mobiltelefon']
+    io_format_df['E-post kontakt'] = mc_format_df['E-post'] 
+    io_format_df['Kontaktadress - c/o adress'] = mc_format_df['c/o']
+    io_format_df['Kontaktadress - Gatuadress'] = mc_format_df['Adress']
+    io_format_df['Kontaktadress - Postnummer'] = mc_format_df['Postnummer'].astype('string').apply(convert_postnr)
+    io_format_df['Kontaktadress - Postort'] = mc_format_df['Postort']
+    io_format_df['Kontaktadress - Land'] = mc_format_df['Land'].apply(convert_countrycode)
+    # io_format_df['Arbetsadress - c/o adress'] = mc_format_df['']
+    # io_format_df['Arbetsadress - Gatuadress'] = mc_format_df['']
+    # io_format_df['Arbetsadress - Postnummer'] = mc_format_df['']
+    # io_format_df['Arbetsadress - Postort'] = mc_format_df['']
+    # io_format_df['Arbetsadress - Land'] = mc_format_df['']
+    io_format_df['Telefon bostad'] = mc_format_df['Hemtelefon']
+    io_format_df['Telefon arbete'] = mc_format_df['Arbetstelefon']
+    # io_format_df['E-post privat'] = mc_format_df['Kontakt 1 epost']
+    # io_format_df['E-post arbete'] = mc_format_df['']
+    
+    io_format_df['Medlem sedan'] = mc_format_df['Datum registrerad']
+    io_format_df['MC_Senast ändrad'] = mc_format_df['Senast ändrad']
+    # io_format_df['Medlem t.o.m.'] = mc_format_df['']
+    io_format_df['Övrig medlemsinfo'] = mc_format_df['Kommentar'].astype('string').apply(clean_pii_comments) # Special handling - not for all clubs
+    # Add special info to 'Övrig medlemsinfo' - MC MedlemsInfo and execution time
+    io_format_df['Övrig medlemsinfo'] = [add_comment_info(comment, member_id, timestamp)
+        for comment, member_id
+        in zip(io_format_df['Övrig medlemsinfo'] , mc_format_df['MedlemsID'])]
+
+    # io_format_df['Familj'] = mc_format_df['Familj']
+    # io_format_df['Fam.Admin'] = mc_format_df[''] 
+    io_format_df['Lägg till GruppID'] = mc_format_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
+    # Also - add special columns as groupIDs
+
+    # Fallback
+    if not 'Avgift' in mc_format_df.columns:
+        mc_format_df['Avgift'] = np.nan
+
+    io_format_df['Lägg till GruppID'] = [concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift) 
+        for groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift
+        in zip(io_format_df['Lägg till GruppID'], mc_format_df['Cirkusledarutbildning'], mc_format_df['Frisksportlöfte'], 
+            mc_format_df['Hedersmedlem'], mc_format_df['Ingen tidning tack'], mc_format_df['Frisksportutbildning'], 
+            mc_format_df['Trampolinutbildning'], mc_format_df['Avgift'])]
+    # Also - add family info as groups
+    # 2020-11-15 Disabled - since IO does not handle this according to documentation...
+    if False:
+        mc_format_df['Familj'] = mc_format_df['Familj'].apply(mc_family_to_id)
+        io_format_df['Lägg till GruppID'] = [concat_group_id(groups, family_id) 
+            for groups, family_id 
+            in zip(io_format_df['Lägg till GruppID'], mc_format_df['Familj'])]
+    return io_format_df
+
 def convert_mc_personnummer_to_io(mc_pnr):
     """
     Convert Personnummer of format "yyyymmddnnnn" to "yyyymmdd-nnnn". Also handle case "yyyymmdd".
@@ -148,6 +245,9 @@ def add_comment_info(comment, medlems_id, timestamp):
     Append comment field with special info about MedlemsID and timestamp note
     """
     # TODO: if MedlemsID in other column -> ?
+    if pd.isna(comment):
+        return comment
+    
     if re.match(r"\[\[MC-ID: .*", comment): # MC-ID already in comment
         return comment
     elif re.match(r"\[\[MedlemsID: .*", comment): # MedlemsID already in comment
@@ -160,10 +260,25 @@ def add_comment_info(comment, medlems_id, timestamp):
         comment = "{} {}".format(comment, end)
     return comment
 
+def search_medlemsid_from_io(comment, medlemsnr):
+    """
+    Try to find MedlemsID from IO df
+    """
+    memid = convert_io_comment_to_mc_member_id(comment)
+    if pd.isna(memid):
+        memid = extract_mc_medlemsid(medlemsnr)
+
+    return memid
+
+
 def convert_io_comment_to_mc_member_id(comment):
     """
     Convert comment to MC MemberID
     """
+    # Skip if empty
+    if pd.isna(comment):
+        return pd.NA
+
     regexp = r"\[\[MC-ID: (\d*)\]\]"    #  
     regexp2 = r"\[\[MedlemsID: (\d*)\]\]"   # 
     match = re.search(regexp, comment)
@@ -176,18 +291,21 @@ def convert_io_comment_to_mc_member_id(comment):
         match = re.search(regexp2, comment)
         if match:
             return match.group(1)
-    return "" # Default
+    return pd.NA
 
 def extract_mc_medlemsid(medlemsnr):
     """
     Return valid MC MedlemsID or ""
     """
+    if pd.isna(medlemsnr):
+        return pd.NA
+
     regexp = r"^\d{4,}"
     m = re.match(regexp, medlemsnr)
     if m:
         return medlemsnr
     else:
-        return ""
+        return pd.NA
 
 def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift):
     """
@@ -200,7 +318,7 @@ def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_
     else:
         result = []
     #result.append("579010") # Always append MC_Import
-    result.append("580600") # MC_Alla
+    #result.append("580600") # MC_Alla
     #result.append("579873") # MC_Uppdaterad
     if cirkusutb == "Ja":
         result.append("579058") # MC_Cirkusledarutbildning
