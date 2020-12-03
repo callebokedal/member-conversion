@@ -24,3 +24,4 @@ clear && docker run -it --rm --name my-test-script -v "$PWD":/usr/src/app -w /us
     files/exports/2020-11-26_23.40_mc_all_export.xlsx \
     files/2020-11-13_MyClub_invoice_export.xls \
     files/exports/2020-11-26_io_mc_alla_export.xlsx 
+    #files/exports/2020-11-28_00.14_membersid_before_io_import

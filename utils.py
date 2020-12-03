@@ -6,7 +6,6 @@ import numpy as np
 
 from families import families
 
-
 def _read_mc_file(file_name):
     """
     Read from MC file and return dataframe. Converts incoming data.
@@ -23,14 +22,15 @@ def _read_io_file(file_name, columns = None):
     """
     Read from IO file and return dataframe. Converts incoming data.
     """
-    _dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
-            'Medlemsnr.': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'}
+    _dtype = {'Förnamn': 'string','Efternamn': 'string','Födelsedat./Personnr.': 'string', 'Medlemsnr.': 'string',
+        'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+        'Medlemsnr.': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'}
     _converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
-            'Personnummer':convert_mc_personnummer_to_io, 
-            'Kontakt 1 epost':normalize_email, 
-            'Postnummer':convert_postnr, 
-            'Kontaktadress - Postort':normalize_postort,
-            'Postort':normalize_postort}
+        'Personnummer':convert_mc_personnummer_to_io, 
+        'Kontakt 1 epost':normalize_email, 
+        'Postnummer':convert_postnr, 
+        'Kontaktadress - Postort':normalize_postort,
+        'Postort':normalize_postort}
     if columns:
         return pd.read_excel(file_name, 
             usecols = columns,
@@ -112,7 +112,7 @@ def convert_mc_personnummer_to_io(mc_pnr):
         return "{}-{}".format(mc_pnr[0:8],mc_pnr[-4:])
     else:
         # Assume as-is ok
-        return mc_pnr
+        return str(mc_pnr)
     
 def convert_postnr(mc_nr):
     """
@@ -214,6 +214,16 @@ def one_mc_groupto_io(single_group):
         return "579398" # MC_Skidor
     elif g == "Uppdatering till fullt personnummer":
         return None # Skip
+    elif g == "Remaining migration":
+        return None # Skip
+    elif g == "Remaining migration 2":
+        return None # Skip
+    elif g == "Remaining migration 3":
+        return None # Skip
+    elif g == "Remaining migration 4":
+        return None # Skip
+    elif g == "Remaining migration 5":
+        return None # Skip
     else:
         print("Warning - unhandled group: " + g)
         return None
@@ -244,16 +254,15 @@ def add_comment_info(comment, medlems_id, timestamp):
     """
     Append comment field with special info about MedlemsID and timestamp note
     """
-    # TODO: if MedlemsID in other column -> ?
+    end = "[[MC-ID: {}]][[{}]]".format(str(medlems_id), timestamp)
     if pd.isna(comment):
-        return comment
+        return end
     
     if re.match(r"\[\[MC-ID: .*", comment): # MC-ID already in comment
         return comment
     elif re.match(r"\[\[MedlemsID: .*", comment): # MedlemsID already in comment
         return comment
 
-    end = "[[MC-ID: {}]][[Import: {}]]".format(str(medlems_id), timestamp)
     if pd.isna(comment):
         comment = end
     else:
@@ -264,12 +273,11 @@ def search_medlemsid_from_io(comment, medlemsnr):
     """
     Try to find MedlemsID from IO df
     """
-    memid = convert_io_comment_to_mc_member_id(comment)
+    memid = extract_mc_medlemsid(medlemsnr)
     if pd.isna(memid):
-        memid = extract_mc_medlemsid(medlemsnr)
-
-    return memid
-
+        memid = convert_io_comment_to_mc_member_id(comment)
+    #print(memid)
+    return str(memid)
 
 def convert_io_comment_to_mc_member_id(comment):
     """
@@ -307,6 +315,27 @@ def extract_mc_medlemsid(medlemsnr):
     else:
         return pd.NA
 
+def verify_special_cols(mc_value, io_value, io_match_value, mc_match_value):
+    """
+    Verify that value 'mc_value' in MC is set by corresponding group in IO 
+    """
+    group_name_found = False
+    for grp in io_value.split(','):
+        if grp.strip() == io_match_value:
+            group_name_found = True
+
+    if pd.isna(mc_value):
+        mc_value = ""
+
+    if (mc_value == mc_match_value) and group_name_found:
+        # Value is what we want and group is the same
+        return True
+    elif (mc_value != mc_match_value) and not group_name_found:
+        # Value missing, but also group -> Valid -> True
+        return True
+    
+    return False
+    
 def concat_special_cols(groups, cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift):
     """
     Concatinate special columns into one, comma-separated list of strings

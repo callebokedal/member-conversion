@@ -205,30 +205,45 @@ def update_medlemsid_in_io(mc_file_name, io_file_name):
         for comment, medlemsnr 
         in zip (io_read_df['Övrig medlemsinfo'], io_read_df['Medlemsnr.'])]
 
-    # Filer with MC MedlemsID = None
-    io_missing_memid_df = io_read_df[io_read_df['MC_MedlemsID'].isnull()]
-    stats("Antal medlemmar utan MedlemsID i IO: {}".format(str(len(io_missing_memid_df))))
-
-    #merged_df = merged_df[merged_df['Grupp/Lag/Arbetsrum/Familj'].str.contains('MC_Import', na="") != True]
-    #stats("Antal med ursprung från MC: {}".format(str(len(merged_df))))
-
-    save_file(path + timestamp + '_membersid_before_io_import.xlsx', io_missing_memid_df)
-    stats("Sparat: " + path + timestamp + '_membersid_before_io_import.xlsx')
-    print(io_missing_memid_df.head())
-    return
-
     # Filter away members that already have MedlemsID
+    io_read_df = io_read_df[io_read_df['MC_MedlemsID'].isnull()]
+    stats("Antal medlemmar utan MedlemsID i IO: {}".format(str(len(io_read_df))))
 
-    save_file(path + timestamp + '_membersid_for_io_import.xlsx', for_io_import_df)
-    stats("Sparat: " + path + timestamp + '_membersid_for_io_import.xlsx')
-    print(for_io_import_df.head())
-    return
+    # Skip for now
+    if False:
+        save_file(path + timestamp + '_membersid_before_io_import.xlsx', io_read_df)
+        stats("Sparat: " + path + timestamp + '_membersid_before_io_import.xlsx')
+        print(io_read_df.head())
+        return
+
 
     # Map person to person between MC <-> IO
+    merged_df = pd.merge(mc_read_df, io_read_df,
+                     #on = 'Födelsedat./Personnr.',
+                     left_on = 'Personnummer',
+                     right_on = 'Födelsedat./Personnr.',
+                     how = 'inner',
+                     suffixes = ('_mc',''),
+                     indicator = True)
+    stats("Antal mergade medlemmar: {}".format(len(merged_df)))
 
-    # Add MedlemsID from Mc for new import
+    # Add MedlemsID from MC for new import
+    merged_df['Övrig medlemsinfo'] = [add_comment_info(comment, member_id, date_today)
+        for comment, member_id
+        in zip(merged_df['Övrig medlemsinfo'] , merged_df['MedlemsID'])]
+
+    # Set "Medlemsnr." to "MedlemsID" if not already set
+    merged_df['Medlemsnr.'] = np.where(pd.isna(merged_df['Medlemsnr.']), merged_df['MedlemsID'], merged_df['Medlemsnr.'])
 
     # Export in "import" format
+    io_import_cols = ['Typ','Målsman','Förnamn','Alt. förnamn','Efternamn','IdrottsID','Födelsedat./Personnr.','Kön','Nationalitet','Telefon mobil','E-post kontakt','Kontaktadress - c/o adress','Kontaktadress - Gatuadress','Kontaktadress - Postnummer','Kontaktadress - Postort','Kontaktadress - Land','Folkbokföring - c/o adress','Folkbokföring - Gatuadress','Folkbokföring - Postnummer','Folkbokföring - Postort','Folkbokföring - Land','Folkbokföring - Kommunkod','Folkbokföring - Kommun','Arbetsadress - c/o adress','Arbetsadress - Gatuadress','Arbetsadress - Postnummer','Arbetsadress - Postort','Arbetsadress - Land','Telefon bostad','Telefon arbete','E-post privat','E-post arbete','Roller','Behörighet','Övrig medlemsinfo','Grupp/Lag/Arbetsrum/Familj','Familj','Fam.Admin','Medlemsnr.','Medlem sedan','Medlem t.o.m.','Organisation','Registreringsdatum','Avslutningsdatum']
+    io_for_import_df = merged_df.loc[:, io_import_cols]
+    stats("Antal medlemmar for IO import: {}".format(len(io_for_import_df)))
+
+    save_file(path + timestamp + '_membersid_for_io_import.xlsx', io_for_import_df)
+    stats("Sparat: " + path + timestamp + '_membersid_for_io_import.xlsx')
+    # print(for_io_import_df.head())
+    return
 
     # Done?
    
@@ -479,7 +494,7 @@ def sync_special_fields_from_mc_to_io(mc_file_name, mc_invoice_file, io_file_nam
     stats("Antal att uppdatera i IO: {} ({})".format(str(len(merged_df)), Path(sync_specials_filename).name))
 
 
-def sync_groups_from_mc_to_io(mc_file_name, io_file_name):
+def sync_groups_from_mc_to_io(mc_file_name, mc_invoice_file, io_file_name):
     """
     Sync groupes between MC and IO
     """
@@ -487,17 +502,35 @@ def sync_groups_from_mc_to_io(mc_file_name, io_file_name):
     mc_read_df = _read_mc_file(mc_file_name)
     stats("Antal inlästa från MC: {} ({})".format(str(len(mc_read_df)), Path(mc_file_name).name))
 
+    # Invoice info from My Club
+    mc_invoice_df = pd.read_excel(mc_invoice_file,  
+        dtype = {'MedlemsID': 'string'}, 
+        usecols=['MedlemsID','Avgift','Summa','Summa betalt'])
+        #usecols=['MedlemsID','Avgift','Summa','Summa betalt',
+        #    'Familjemedlem 1','Familjemedlem 2','Familjemedlem 3','Familjemedlem 4','Familjemedlem 5','Familjemedlem 6'])
+    stats("Antal fakturor i MC:  {} ({})".format(str(len(mc_invoice_df)), Path(mc_invoice_file).name))
+    # Merge in invoice details
+    # Added later as special column
+    mc_read_df = mc_read_df.merge(mc_invoice_df, on='MedlemsID', how='left', suffixes=(None,'_inv'), validate = "one_to_one")
+
     # Get data from latest IO export
     io_read_df = _read_io_file(io_file_name)
     # print(io_read_df.columns)
     stats("Antal inlästa från IO: {} ({})".format(str(len(io_read_df)), Path(io_file_name).name))
 
+    # Get MedlemsID from IO - if we can find it
+    io_read_df['MC_MedlemsID'] = [search_medlemsid_from_io(comment, medlemsnr)
+        for comment, medlemsnr 
+        in zip (io_read_df['Övrig medlemsinfo'], io_read_df['Medlemsnr.'])]
+
     merged_df = pd.merge(mc_read_df, io_read_df,
-        left_on = 'Personnummer',
-        right_on = 'Födelsedat./Personnr.',
+        left_on = 'MedlemsID',
+        right_on = 'MC_MedlemsID',
+        #left_on = 'Personnummer',
+        #right_on = 'Födelsedat./Personnr.',
         how = 'inner',
         suffixes = ('_mc',''))
-    stats("Antal lika (på personnummer): {}".format(str(len(merged_df))))
+    stats("Antal lika (på MedlemsID): {}".format(str(len(merged_df))))
 
     # Filter away members with incomplete 'personnummer'
     #merged_df = merged_df[merged_df['Personnummer'].str.len() == 13]
@@ -511,12 +544,25 @@ def sync_groups_from_mc_to_io(mc_file_name, io_file_name):
     merged_df[['Prova-på', 'Ta bort GruppID']] = np.nan
 
     # Convert MC groups to IO GroupID's
-    merged_df['Lägg till GruppID'] = merged_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
+    #merged_df['Lägg till GruppID'] = merged_df['Grupper'].apply(convert_mc_groups_to_io_groups) 
 
     # Add special group 'MC_GruppViaMC' 580242
     # Add MC_Alla (580600)
     # We know that all groups are non-empty, we can just add at the end
-    merged_df['Lägg till GruppID'] = merged_df['Lägg till GruppID'].apply(lambda x : x + ', 580600')
+    # merged_df['Lägg till GruppID'] = merged_df['Lägg till GruppID'].apply(lambda x : x + ', 580600')
+
+    # Also - add ONLY special columns as groupIDs
+    # Be sure to uodate via import, DON'T overwrite
+    merged_df['Lägg till GruppID'] = [
+        concat_special_cols("", cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift) 
+                            for cirkusutb, frisksportlofte, hedersmedlem, ingen_tidning, frisksportutb, trampolinutb, avgift
+        in zip(merged_df['Cirkusledarutbildning'], 
+            merged_df['Frisksportlöfte'], 
+            merged_df['Hedersmedlem'], 
+            merged_df['Ingen tidning tack'], 
+            merged_df['Frisksportutbildning'], 
+            merged_df['Trampolinutbildning'], 
+            merged_df['Avgift'])]
 
     # Retain columns to be used for import only
     export_cols = ['Prova-på', 'Förnamn', 'Alt. förnamn', 'Efternamn', 'Kön', 'Nationalitet', 'IdrottsID', 
@@ -528,7 +574,7 @@ def sync_groups_from_mc_to_io(mc_file_name, io_file_name):
     merged_df = merged_df[export_cols]
 
     # sync_groups_filename = path + date_today + '_sync_groups_update.xlsx'
-    sync_groups_filename = path + timestamp + '_sync_groups_update.xlsx'
+    sync_groups_filename = path_out + timestamp + '_sync_groups_update.xlsx'
     save_file(sync_groups_filename, merged_df)
     stats("Antal att uppdatera i IO: {} ({})".format(str(len(merged_df)), Path(sync_groups_filename).name))
 
@@ -750,7 +796,7 @@ if "update_email" == cmd:
 # Export-3 - Map groups in MC and IO 
 # Use sync_groups.sh
 if "sync_groups" == cmd:
-    sync_groups_from_mc_to_io(exp_mc_members_file, exp_io_members_file)
+    sync_groups_from_mc_to_io(exp_mc_members_file, exp_mc_invoices_file, exp_io_members_file)
 
 # Check the rest
 # TODO Check member with non-complete personnummer

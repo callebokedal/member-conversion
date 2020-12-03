@@ -7,11 +7,13 @@ from datetime import date
 import time 
 from time import strftime
 
+from xlsxwriter.utility import xl_rowcol_to_cell
+
 from utils import convert_countrycode, convert_mc_personnummer_to_io, convert_postnr, \
     clean_pii_comments, convert_mc_groups_to_io_groups, normalize_email, concat_special_cols, \
     normalize_postort, mc_family_to_id, concat_group_id, add_comment_info, \
     compare_mc_columns, compare_io_columns, convert_io_comment_to_mc_member_id, extract_mc_medlemsid, \
-    _read_mc_file, _read_io_file
+    _read_mc_file, _read_io_file, search_medlemsid_from_io, verify_special_cols
 
 """
 Script to export members from My Cloud and import in Idrott Online
@@ -55,7 +57,34 @@ def save_file(file_name, df):
     """
     Save to Excel file
     """
-    df.to_excel(file_name, index=False)
+    # To get colors to work
+    writer = pd.ExcelWriter(file_name, engine='xlsxwriter')
+    df.to_excel(writer, index=False)
+
+    # Get access to the workbook and sheet
+    workbook = writer.book
+    #worksheet = writer.sheets[1] # First sheet
+    worksheet = writer.sheets['Sheet1']
+
+    # Add a format. Light red fill with dark red text.
+    format1 = workbook.add_format({'bg_color': '#FFC7CE',
+                                'font_color': '#9C0006'})
+
+    # Define our range for the color formatting
+    color_range = "DO2:DZ864"
+
+    # Highlight the bottom 5 values in Red
+    worksheet.conditional_format(color_range, {
+        #'type': 'bottom',
+        #                                    'value': '5',
+        #                                    'format': format1})
+
+                                         'type': 'cell',
+                                         'criteria': '=',
+                                         'value': 'FALSE',
+                                         'format': format1})
+    writer.save()
+    # df.to_excel(file_name, index=False)
     return df
 
 def stats(text):
@@ -81,20 +110,6 @@ def compare_mc_and_io(mc_file_name, io_file_name):
     # Note! Doesn't read all columns...
     mc_read_df = _read_mc_file(mc_file_name)
     stats("Antal inlästa från MC: {:>4} ({})".format(str(len(mc_read_df)), Path(mc_file_name).name))
-
-    #stats("# Information i My Club:")
-    #stats("Friskportslöfte  = Ja: {:>4} st".format(len(mc_read_df.loc[mc_read_df['Frisksportlöfte'] == 'Ja' ])))
-    #stats("Friskportslöfte != Ja: {:>4} st".format(len(mc_read_df.loc[mc_read_df['Frisksportlöfte'] != 'Ja' ])))
-    #stats("Friskportslöfte = Nej: {:>4} st".format(len(mc_read_df.loc[mc_read_df['Frisksportlöfte'] == 'Nej' ])))
-    #stats("Ingen tidning tack  = Ja: {:>7} st".format(len(mc_read_df.loc[mc_read_df['Ingen tidning tack'] == 'Ja' ])))
-    #stats("Ingen tidning tack != Ja: {:>7} st".format(len(mc_read_df.loc[mc_read_df['Ingen tidning tack'] != 'Ja' ])))
-    #stats("Ingen tidning tack = Nej: {:>7} st".format(len(mc_read_df.loc[mc_read_df['Ingen tidning tack'] == 'Nej' ])))
-    #stats("Hedersmedlem = Ja: {:>8} st".format(len(mc_read_df.loc[mc_read_df['Hedersmedlem'] == 'Ja' ])))
-    #stats("Frisksportutbildning (Basic): {:>8} st".format(len(mc_read_df.loc[mc_read_df['Frisksportutbildning'] == 'Frisksport Basic (grundledarutbildning)'])))
-    #stats("Frisksportutbildning (Ledarutb.): {:>4} st".format(len(mc_read_df.loc[mc_read_df['Frisksportutbildning'] == 'Ledarutbildning steg 1'])))
-    #stats("Trampolinutbildning: {:>6} st".format(len(mc_read_df.loc[mc_read_df['Trampolinutbildning'] == 'Ja' ])))
-    #print(mc_read_df.keys())
-
 
     def print_mc_group_stats(label, extra = None):
         # Make label regexp safe
@@ -134,7 +149,18 @@ def compare_mc_and_io(mc_file_name, io_file_name):
     # Get data from latest IO export (and convert some cols to IO format)
     # Note! Doesn't read all columns...
     io_read_df = _read_io_file(io_file_name, compare_io_columns)
-    stats("Antal inlästa från IO: {:>4} ({})".format(str(len(io_read_df)), Path(io_file_name).name))
+    stats("Antal inlästa från IO: {:>4} ({})".format(len(io_read_df), Path(io_file_name).name))
+
+    # Filter only with MC_Alla
+    io_read_df = io_read_df[io_read_df['Grupp/Lag/Arbetsrum/Familj'].str.contains("MC_Alla", na=False)]
+    stats("Antal medlemmar med MC_Alla i IO: {}".format(len(io_read_df)))
+
+    # Extract MC MedlemsID for all IO members
+    io_read_df['MC_MedlemsID'] = [search_medlemsid_from_io(comment, medlemsnr)
+        for comment, medlemsnr 
+        in zip (io_read_df['Övrig medlemsinfo'], io_read_df['Medlemsnr.'])]
+    # Set correct dtype
+    io_read_df['MC_MedlemsID'] = io_read_df['MC_MedlemsID'].astype('string')
 
     def print_io_group_stats(label, extra = None):
         if extra:
@@ -146,6 +172,7 @@ def compare_mc_and_io(mc_file_name, io_file_name):
     print_io_group_stats('Senior')
     print_io_group_stats('Sektion Innebandy')
     print_io_group_stats('Sektion MTB')
+    print_io_group_stats('MC_Alla')
     print_io_group_stats('MC_Cirkusledarutbildning')
     print_io_group_stats('MC_Fotboll')
     print_io_group_stats('MC_FrisksportlöfteJa')
@@ -181,14 +208,11 @@ def compare_mc_and_io(mc_file_name, io_file_name):
     # MC_FrisksportlöfteNej - 579062
     #stats("Friskportslöfte = Nej i IO: {:>8}".format(str(len(io_read_df.loc[io_read_df['Grupp/Lag/Arbetsrum/Familj'] == 'Nej' ]))))
 
-    # Merge on outer (means everyone)
     stats("MC " + "> Merge (outer: personnummer) <".center(40, "-") + " IO")
     merged_df = pd.merge(mc_read_df, io_read_df,
-        left_on = 'Personnummer',
-        right_on = 'Födelsedat./Personnr.',
-        #left_on = ['Personnummer','Förnamn','Efternamn'],
-        #right_on = ['Födelsedat./Personnr.','Förnamn','Efternamn'],
-        how = 'outer',
+        left_on = 'MedlemsID',
+        right_on = 'MC_MedlemsID',
+        how = 'inner',
         suffixes = ('_mc','_io'),
         indicator = True)
     stats("Antal efter merge: {:>8}".format(str(len(merged_df))))
@@ -199,8 +223,8 @@ def compare_mc_and_io(mc_file_name, io_file_name):
     stats("Antal i båda:      {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'both' ]))))
 
     merged_filename = path_out + timestamp + '_comparison_merge_report.xlsx'
-    save_file(merged_filename, merged_df)
-    stats("Saving report: {}".format(merged_filename))
+    #save_file(merged_filename, merged_df)
+    #stats("Saving report: {}".format(merged_filename))
 
     # Add group MC_Alla to everyone in MC and now also IO
     for_mc_alla_df = pd.merge(mc_read_df, io_read_df,
@@ -212,54 +236,117 @@ def compare_mc_and_io(mc_file_name, io_file_name):
         suffixes = ('_mc','_io'))
 
     mc_alla_filename = path_out + timestamp + '_mc_alla_report.xlsx'
-    save_file(mc_alla_filename, merged_df)
-    stats("Saving MC_Alla report: {}".format(mc_alla_filename))
+    #save_file(mc_alla_filename, merged_df)
+    #stats("Saving MC_Alla report: {}".format(mc_alla_filename))
 
 def compare_persons(mc_file_name, io_file_name):
     """
     Compare persons by personnummer, firstname and lastname
     """
     mc_read_df = pd.read_excel(mc_file_name, 
-        usecols = ['Förnamn','Efternamn','Personnummer','MedlemsID'],
-        #dtype = {'Personnummer': 'string'},
-        converters = {'Personnummer':convert_mc_personnummer_to_io}) 
+        #usecols = ['Förnamn','Efternamn','Personnummer','MedlemsID'],
+        dtype = {'Förnamn': 'string','Efternamn': 'string','MedlemsID': 'string'},
+        converters = {'Personnummer':convert_mc_personnummer_to_io})
+    mc_read_df['Personnummer'] = mc_read_df['Personnummer'].astype('string')
     stats("Antal inlästa från MC: {:>4} ({})".format(str(len(mc_read_df)), Path(mc_file_name).name))
 
     io_read_df = pd.read_excel(io_file_name, 
-        usecols = ['Förnamn','Efternamn','Födelsedat./Personnr.','Övrig medlemsinfo', 'Medlemsnr.', 'Övrig medlemsinfo', 'Grupp/Lag/Arbetsrum/Familj'],
-        #usecols = ['Förnamn','Efternamn','IdrottsID','Födelsedat./Personnr.'],
-        #dtype = {'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
-        #    'Medlemsnr.': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'},
-        converters = {'Personnummer':convert_mc_personnummer_to_io,
-         'Övrig medlemsinfo':convert_io_comment_to_mc_member_id,
-         'Medlemsnr.':extract_mc_medlemsid})
-    # Renamne column
-    io_read_df.rename(columns = {'Födelsedat./Personnr.':'Personnummer', 'Övrig medlemsinfo':'MedlemsID'}, inplace = True) 
-
+        #usecols = ['Förnamn','Efternamn','Födelsedat./Personnr.','Övrig medlemsinfo', 'Medlemsnr.', 'Grupp/Lag/Arbetsrum/Familj'],
+        dtype = {'Förnamn': 'string','Efternamn': 'string','Födelsedat./Personnr.': 'string', 'Medlemsnr.': 'string',
+        'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+        'Medlemsnr.': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'}) 
     stats("Antal inlästa från IO: {:>4} ({})".format(str(len(io_read_df)), Path(io_file_name).name))
 
-    if True:
-        merged_df = pd.merge(mc_read_df, io_read_df,
-            on = 'Personnummer',
-            #left_on = 'Personnummer',
-            #right_on = 'Födelsedat./Personnr.',
-            #left_on = ['Personnummer','Förnamn','Efternamn'],
-            #right_on = ['Födelsedat./Personnr.','Förnamn','Efternamn'],
-            #right_on = ['Personnummer','Förnamn','Efternamn'],
-            how = 'outer',
-            suffixes = ('_mc','_io'),
-            indicator = True)
-        #print(merged_df.head())
+    # Extract MC MedlemsID for all IO members
+    io_read_df['MC_MedlemsID'] = [search_medlemsid_from_io(comment, medlemsnr)
+        for comment, medlemsnr 
+        in zip (io_read_df['Övrig medlemsinfo'], io_read_df['Medlemsnr.'])]
+    # Set correct dtype
+    io_read_df['MC_MedlemsID'] = io_read_df['MC_MedlemsID'].astype('string')
 
-        merged_df['Kopior'] = merged_df.duplicated(keep=False) 
+    # Merge on matching MedlemsID
+    merged_df = pd.merge(mc_read_df, io_read_df,
+        left_on = 'MedlemsID',
+        right_on = 'MC_MedlemsID',
+        how = 'inner',
+        suffixes = ('_mc','_io'),
+        indicator = True)
+    #merged_df['Kopior'] = merged_df.duplicated(keep=False) 
+    stats("Antal mergade: {:>8}".format(len(merged_df)))
 
-        stats("Antal endast i MC: {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'left_only' ]))))
-        stats("Antal endast i IO: {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'right_only' ]))))
-        stats("Antal i båda:      {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'both' ]))))
+    stats("Antal endast i MC: {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'left_only' ]))))
+    stats("Antal endast i IO: {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'right_only' ]))))
+    stats("Antal i båda:      {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'both' ]))))
 
-        compare_persons_file = path_out + timestamp + '_compare__some_persons.xlsx'
-        save_file(compare_persons_file, merged_df)
-        stats("Saved compare persons report: {}".format(compare_persons_file))
+    # Add comparison columns
+    merged_df['Jmf Förnamn'] = np.where(merged_df['Förnamn_mc'] == merged_df['Förnamn_io'], True, False)
+    merged_df['Jmf Efternamn'] = np.where(merged_df['Efternamn_mc'] == merged_df['Efternamn_io'], True, False)
+    merged_df['Jmf Personnummer'] = np.where(merged_df['Personnummer'] == merged_df['Födelsedat./Personnr.'], True, False)
+    
+    merged_df['Jmf Cirkusledarutbildning'] = [verify_special_cols(mc_value, io_value, "MC_Cirkusledarutbildning", "Ja")
+        for mc_value, io_value in zip (merged_df['Cirkusledarutbildning'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+    
+    merged_df['Jmf FrisksportlöfteJa'] = [verify_special_cols(mc_value, io_value, "MC_FrisksportlöfteJa", "Ja")
+        for mc_value, io_value in zip (merged_df['Frisksportlöfte'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+    
+    merged_df['Jmf FrisksportlöfteNej'] = [verify_special_cols(mc_value, io_value, "MC_FrisksportlöfteNej", "Nej")
+        for mc_value, io_value in zip (merged_df['Frisksportlöfte'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+    
+    merged_df['Jmf Hedersmedlem'] = [verify_special_cols(mc_value, io_value, "MC_Hedersmedlem", "Ja")
+        for mc_value, io_value in zip (merged_df['Hedersmedlem'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+    
+    merged_df['Jmf Ingen tidning tack'] = [verify_special_cols(mc_value, io_value, "MC_IngenTidning", "Ja")
+        for mc_value, io_value in zip (merged_df['Ingen tidning tack'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+    
+    merged_df['Jmf Frisksportutbildning Basic'] = [verify_special_cols(mc_value, io_value, "MC_FrisksportutbildningBasic", "Frisksport Basic (grundledarutbildning)")
+        for mc_value, io_value in zip (merged_df['Frisksportutbildning'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+    
+    merged_df['Jmf Frisksportutbildning Steg 1'] = [verify_special_cols(mc_value, io_value, "MC_FrisksportutbildningSteg1", "Ledarutbildning steg 1")
+        for mc_value, io_value in zip (merged_df['Frisksportutbildning'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+    
+    merged_df['Jmf Trampolinutbildning Steg 1'] = [verify_special_cols(mc_value, io_value, "MC_TrampolinutbildningSteg1", "Steg 1")
+        for mc_value, io_value in zip (merged_df['Trampolinutbildning'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+    
+    merged_df['Jmf Trampolinutbildning Steg 2'] = [verify_special_cols(mc_value, io_value, "MC_TrampolinutbildningSteg2", "Steg 2")
+        for mc_value, io_value in zip (merged_df['Trampolinutbildning'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+
+    if False:
+        # Colorise mismatches
+        def mark_mismatches(x):
+            return ['background-color: red']
+            #return ['background-color: red' if x == 'FALSE' else '']
+        merged_df.style.apply(mark_mismatches, subset=['Jmf Cirkusledarutbildning','Jmf Efternamn','Jmf FrisksportlöfteJa',
+            'Jmf FrisksportlöfteNej','Jmf Frisksportutbildning Basic','Jmf Frisksportutbildning Steg 1',
+            'Jmf Förnamn','Jmf Hedersmedlem','Jmf Ingen tidning tack','Jmf Personnummer',
+            'Jmf Trampolinutbildning Steg 1','Jmf Trampolinutbildning Steg 2'])
+
+    compare_persons_file = path_out + timestamp + '_compare_matching_persons.xlsx'
+    save_file(compare_persons_file, merged_df)
+    stats("Saved compare persons report: {}".format(compare_persons_file))
+
+    if False:
+        def get_different_rows(source_df, new_df):
+            """Returns just the rows from the new dataframe that differ from the source dataframe"""
+            merged_df = source_df.merge(new_df, indicator=True, how='outer')
+            changed_rows_df = merged_df[merged_df['_merge'] == 'right_only']
+            return changed_rows_df.drop('_merge', axis=1)
+
+        # Compare
+        mc_partial_df = merged_df[['Förnamn_mc','Efternamn_mc','Personnummer','MedlemsID']].copy()
+        mc_partial_df.rename(columns = {'Förnamn_mc':'Förnamn', 'Efternamn_mc':'Efternamn'}, inplace=True)
+        io_partial_df = merged_df[['Förnamn_io','Efternamn_io','Födelsedat./Personnr.','MC_MedlemsID']].copy()
+        io_partial_df.rename(columns = {'Förnamn_io':'Förnamn', 'Efternamn_io':'Efternamn', 'Födelsedat./Personnr.':'Personnummer','MC_MedlemsID':'MedlemsID'}, inplace=True)
+        #print(mc_partial_df.columns)
+        #print(io_partial_df.columns)
+        print(mc_partial_df.info())
+        print(io_partial_df.info())
+        #print(mc_partial_df.dtypes)
+        #print(io_partial_df.dtypes)
+        #df = mc_partial_df.compare(io_partial_df, align_axis=0)
+        #print(df)
+
+        diff_df = get_different_rows(mc_partial_df, io_partial_df)
+        print(diff_df)
 
 
 # Action 
