@@ -1,10 +1,20 @@
 # pylint: disable=import-error
-# # Utility functions
 import re
 import pandas as pd
 import numpy as np
+import os, sys
 
+from pathlib import Path
 from families import families
+
+# Validation util
+def validate_file(file_name, nr, path = "/usr/src/app/files/"):
+    if not Path(file_name).exists():
+        sys.exit("Illegal file (" + str(int(nr)) + ")")
+
+    fpath = Path(file_name).resolve()
+    if not str(fpath).startswith(path):
+        sys.exit("Illegal file path (" + str(int(nr)) + ")")
 
 def _read_mc_file(file_name):
     """
@@ -178,6 +188,7 @@ def convert_mc_groups_to_io_groups(groups_str):
         if group_id:
             result.append(group_id)
     # result.append('580588') # Add MC_OfullstPnr
+    result.append('580600') # MC_Alla
     if len(result) > 0:
         return ", ".join(result)
     else:
@@ -203,11 +214,11 @@ def one_mc_groupto_io(single_group):
     elif g == "MTB":
         return "579397" # MC_MTB
     elif g.lower() == "styrelsen":
-        return "578806" # Styrelse SFK
+        return "578806" # SFK Styrelse
     elif g == "Huvudsektion":
         return "579041" # MC_Huvudsektion
     elif g == "Senior":
-        return "579045" # Senior
+        return "579045" # SFK Senior
     elif g == "Innebandy":
         return "579399" # MC_Innebandy
     elif g == "Skidor":
@@ -332,6 +343,28 @@ def verify_special_cols(mc_value, io_value, io_match_value, mc_match_value):
         return True
     elif (mc_value != mc_match_value) and not group_name_found:
         # Value missing, but also group -> Valid -> True
+        return True
+    
+    return False
+
+def verify_group(mc_value, io_value, io_match_value, mc_match_value):
+    """
+    Verify that value 'mc_value' in MC is set by corresponding group in IO 
+    """
+    mc_group_found = False
+    for sport in mc_value.split(','):
+        if sport.strip() == mc_match_value:
+            mc_group_found = True
+
+    io_group_found = False
+    for grp in io_value.split(','):
+        if grp.strip() == io_match_value:
+            io_group_found = True
+
+    if mc_group_found and io_group_found:
+        # Group found in MC, and corresponding group in IO
+        return True
+    if not mc_group_found and not io_group_found:
         return True
     
     return False

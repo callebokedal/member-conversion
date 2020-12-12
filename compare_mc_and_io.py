@@ -13,7 +13,7 @@ from utils import convert_countrycode, convert_mc_personnummer_to_io, convert_po
     clean_pii_comments, convert_mc_groups_to_io_groups, normalize_email, concat_special_cols, \
     normalize_postort, mc_family_to_id, concat_group_id, add_comment_info, \
     compare_mc_columns, compare_io_columns, convert_io_comment_to_mc_member_id, extract_mc_medlemsid, \
-    _read_mc_file, _read_io_file, search_medlemsid_from_io, verify_special_cols
+    _read_mc_file, _read_io_file, search_medlemsid_from_io, verify_special_cols, verify_group
 
 """
 Script to export members from My Cloud and import in Idrott Online
@@ -53,7 +53,7 @@ if len(sys.argv) > 3:
     io_file  = sys.argv[3] 
     validate_file(io_file, 3)
 
-def save_file(file_name, df):
+def save_file(file_name, df, color = False):
     """
     Save to Excel file
     """
@@ -61,28 +61,29 @@ def save_file(file_name, df):
     writer = pd.ExcelWriter(file_name, engine='xlsxwriter')
     df.to_excel(writer, index=False)
 
-    # Get access to the workbook and sheet
-    workbook = writer.book
-    #worksheet = writer.sheets[1] # First sheet
-    worksheet = writer.sheets['Sheet1']
+    if color:
+        # Get access to the workbook and sheet
+        workbook = writer.book
+        worksheet = writer.sheets['Sheet1']
 
-    # Add a format. Light red fill with dark red text.
-    format1 = workbook.add_format({'bg_color': '#FFC7CE',
-                                'font_color': '#9C0006'})
+        # Add a format. Light red fill with dark red text.
+        format1 = workbook.add_format({'bg_color': '#FFC7CE',
+                                    'font_color': '#9C0006'})
 
-    # Define our range for the color formatting
-    color_range = "DO2:DZ864"
+        # Define our range for the color formatting
+        color_range = "DO2:EF900"
 
-    # Highlight the bottom 5 values in Red
-    worksheet.conditional_format(color_range, {
-        #'type': 'bottom',
-        #                                    'value': '5',
-        #                                    'format': format1})
+        # Highlight the bottom 5 values in Red
+        worksheet.conditional_format(color_range, {
+            #'type': 'bottom',
+            #                                    'value': '5',
+            #                                    'format': format1})
 
-                                         'type': 'cell',
-                                         'criteria': '=',
-                                         'value': 'FALSE',
-                                         'format': format1})
+                                            'type': 'cell',
+                                            'criteria': '=',
+                                            'value': 'FALSE',
+                                            'format': format1})
+
     writer.save()
     # df.to_excel(file_name, index=False)
     return df
@@ -152,8 +153,8 @@ def compare_mc_and_io(mc_file_name, io_file_name):
     stats("Antal inlästa från IO: {:>4} ({})".format(len(io_read_df), Path(io_file_name).name))
 
     # Filter only with MC_Alla
-    io_read_df = io_read_df[io_read_df['Grupp/Lag/Arbetsrum/Familj'].str.contains("MC_Alla", na=False)]
-    stats("Antal medlemmar med MC_Alla i IO: {}".format(len(io_read_df)))
+    #io_read_df = io_read_df[io_read_df['Grupp/Lag/Arbetsrum/Familj'].str.contains("MC_Alla", na=False)]
+    #stats("Antal medlemmar med MC_Alla i IO: {}".format(len(io_read_df)))
 
     # Extract MC MedlemsID for all IO members
     io_read_df['MC_MedlemsID'] = [search_medlemsid_from_io(comment, medlemsnr)
@@ -212,7 +213,7 @@ def compare_mc_and_io(mc_file_name, io_file_name):
     merged_df = pd.merge(mc_read_df, io_read_df,
         left_on = 'MedlemsID',
         right_on = 'MC_MedlemsID',
-        how = 'inner',
+        how = 'outer',
         suffixes = ('_mc','_io'),
         indicator = True)
     stats("Antal efter merge: {:>8}".format(str(len(merged_df))))
@@ -223,8 +224,10 @@ def compare_mc_and_io(mc_file_name, io_file_name):
     stats("Antal i båda:      {:>8}".format(str(len(merged_df.loc[merged_df['_merge'] == 'both' ]))))
 
     merged_filename = path_out + timestamp + '_comparison_merge_report.xlsx'
-    #save_file(merged_filename, merged_df)
-    #stats("Saving report: {}".format(merged_filename))
+    save_file(merged_filename, merged_df)
+    stats("Saving report: {}".format(merged_filename))
+
+    return
 
     # Add group MC_Alla to everyone in MC and now also IO
     for_mc_alla_df = pd.merge(mc_read_df, io_read_df,
@@ -283,6 +286,30 @@ def compare_persons(mc_file_name, io_file_name):
     merged_df['Jmf Efternamn'] = np.where(merged_df['Efternamn_mc'] == merged_df['Efternamn_io'], True, False)
     merged_df['Jmf Personnummer'] = np.where(merged_df['Personnummer'] == merged_df['Födelsedat./Personnr.'], True, False)
     
+    merged_df['Jmf Volleyboll'] = [verify_group(mc_value, io_value, "MC_Volleyboll", "Volleyboll")
+        for mc_value, io_value in zip (merged_df['Alla grupper'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+
+    merged_df['Jmf Orientering'] = [verify_group(mc_value, io_value, "MC_OL", "Orientering")
+        for mc_value, io_value in zip (merged_df['Alla grupper'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+    
+    merged_df['Jmf Skateboard'] = [verify_group(mc_value, io_value, "MC_Skate", "Skateboard (Chillskate)")
+        for mc_value, io_value in zip (merged_df['Alla grupper'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+    
+    merged_df['Jmf Fotboll'] = [verify_group(mc_value, io_value, "MC_Fotboll", "Fotboll")
+        for mc_value, io_value in zip (merged_df['Alla grupper'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+    
+    merged_df['Jmf SACRO'] = [verify_group(mc_value, io_value, "MC_SACRO", "Trampolin (SACRO)")
+        for mc_value, io_value in zip (merged_df['Alla grupper'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+    
+    merged_df['Jmf Skidor'] = [verify_group(mc_value, io_value, "MC_Skidor", "Skidor")
+        for mc_value, io_value in zip (merged_df['Alla grupper'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+    
+    merged_df['Jmf Skidor'] = [verify_group(mc_value, io_value, "MC_MTB", "MTB")
+        for mc_value, io_value in zip (merged_df['Alla grupper'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+
+    merged_df['Jmf Skidor'] = [verify_group(mc_value, io_value, "MC_Huvudsektion", "Huvudsektion")
+        for mc_value, io_value in zip (merged_df['Alla grupper'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
+
     merged_df['Jmf Cirkusledarutbildning'] = [verify_special_cols(mc_value, io_value, "MC_Cirkusledarutbildning", "Ja")
         for mc_value, io_value in zip (merged_df['Cirkusledarutbildning'], merged_df['Grupp/Lag/Arbetsrum/Familj'])]
     
@@ -321,7 +348,7 @@ def compare_persons(mc_file_name, io_file_name):
             'Jmf Trampolinutbildning Steg 1','Jmf Trampolinutbildning Steg 2'])
 
     compare_persons_file = path_out + timestamp + '_compare_matching_persons.xlsx'
-    save_file(compare_persons_file, merged_df)
+    save_file(compare_persons_file, merged_df, True)
     stats("Saved compare persons report: {}".format(compare_persons_file))
 
     if False:
