@@ -236,7 +236,10 @@ def update_medlemsid_in_io(mc_file_name, io_file_name):
     save_file(path + timestamp + '_membersid_for_io_import.xlsx', io_for_import_df)
     stats("Sparat: " + path + timestamp + '_membersid_for_io_import.xlsx')
     # print(for_io_import_df.head())
-    return
+
+    disabledBelow1 = True
+    if disabledBelow1:
+        return
 
     # Done?
    
@@ -265,6 +268,7 @@ def update_medlemsid_in_io(mc_file_name, io_file_name):
     #comp_df = df1.compare(df2)
     #save_file('/usr/src/app/files/' + date_today + '_mc-io_comparison.xlsx', comp_df)
     
+
     # 3. Save file with all members from MC in correct format (still need to cross check with IO!)
     save_file(path + timestamp + '_all_mc_in_io_format.xlsx', for_io_import_df)
     stats("Sparat: " + path + timestamp + '_all_mc_in_io_format.xlsx')
@@ -280,7 +284,9 @@ def update_medlemsid_in_io(mc_file_name, io_file_name):
     stats("Antal medlemmar i IO: " + str(len(for_io_import_df)) + " (" + Path(io_file_name).name + ")")
 
     # TODO: Finish below
-    return
+    disabledBelow2 = True
+    if disabledBelow2:
+        return
 
     # For import
     # TODO Remove this later!
@@ -298,11 +304,11 @@ def update_medlemsid_in_io(mc_file_name, io_file_name):
 
     # Label: 'Export-2' - Current members in IO updated in IO with new data from MC
     for_io_import_df = pd.merge(mc_read_df, for_io_import_df,
-                     #on = 'Födelsedat./Personnr.',
-                     on = 'Personnummer',
-                     how = 'right',
-                     suffixes = ('_mc','_io'),
-                     indicator = True)
+                    #on = 'Födelsedat./Personnr.',
+                    on = 'Personnummer',
+                    how = 'right',
+                    suffixes = ('_mc','_io'),
+                    indicator = True)
 
     # Filter - only with full personnummer
     for_io_import_df = for_io_import_df[for_io_import_df['Födelsedat./Personnr.'].str.len() > 8]

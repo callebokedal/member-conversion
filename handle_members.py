@@ -39,20 +39,6 @@ if len(sys.argv) > 3:
 
 # Functions
 
-def export_contact_list(io_file_name):
-    """
-    Convert IO export file to contact list
-    """
-    # Validate args
-    validate_file(io_file_name)
-
-    # Open file, columns of interest
-
-    # Format
-
-    # Create output file
-    pass
-
 # Action 
 print(" Start ".center(80, "-"))
 

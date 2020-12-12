@@ -34,7 +34,7 @@ def _read_io_file(file_name, columns = None):
     """
     _dtype = {'Förnamn': 'string','Efternamn': 'string','Födelsedat./Personnr.': 'string', 'Medlemsnr.': 'string',
         'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
-        'Medlemsnr.': 'string', 'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'}
+        'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'}
     _converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
         'Personnummer':convert_mc_personnummer_to_io, 
         'Kontakt 1 epost':normalize_email, 
