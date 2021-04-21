@@ -9,7 +9,7 @@ from time import strftime
 
 from xlsxwriter.utility import xl_rowcol_to_cell
 
-from utils import convert_countrycode, convert_mc_personnummer_to_io, convert_postnr, \
+from packages.utils import convert_countrycode, convert_mc_personnummer_to_io, convert_postnr, \
     clean_pii_comments, convert_mc_groups_to_io_groups, normalize_email, concat_special_cols, \
     normalize_postort, mc_family_to_id, concat_group_id, add_comment_info, \
     compare_mc_columns, compare_io_columns, convert_io_comment_to_mc_member_id, extract_mc_medlemsid, \

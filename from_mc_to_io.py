@@ -7,7 +7,7 @@ from datetime import date
 import time 
 from time import strftime
 
-from utils import convert_countrycode, convert_mc_personnummer_to_io, convert_postnr, \
+from packages.utils import convert_countrycode, convert_mc_personnummer_to_io, convert_postnr, \
     clean_pii_comments, convert_mc_groups_to_io_groups, normalize_email, concat_special_cols, \
     normalize_postort, mc_family_to_id, concat_group_id, add_comment_info, \
     _read_mc_file, _read_io_file, _convert_mc_to_io_format, \

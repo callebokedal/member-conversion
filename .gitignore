@@ -12,6 +12,7 @@ sync_specials.sh
 sync_last.sh
 check_status.sh
 flask.py
+upload_contactlists.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
