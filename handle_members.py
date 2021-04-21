@@ -60,12 +60,12 @@ if len(sys.argv) > 3:
 
 # Functions
 
-def save_file_plain(file_name, df):
-    """
-    Save to Excel file
-    """
-    df.to_excel(file_name, index=False)
-    return df
+# def save_file_plain(file_name, df):
+#     """
+#     Save to Excel file
+#     """
+#     df.to_excel(file_name, index=False)
+#     return df
 
 def save_file(file_name, df, color = True):
     """
@@ -134,8 +134,6 @@ def get_all_from_export(io_export_file_name):
     output_df['Postort'] = raw_df['Folkbokföring - Postort']
     output_df['Grupp'] = raw_df['Grupp/Lag/Arbetsrum/Familj']
     output_df['UGrupp'] = raw_df['Grupp/Lag/Arbetsrum/Familj'].apply(only_youth_groups)
-    #for grp in youth_groups:
-    #    output_df[grp.replace("OL ","")] = ""
     output_df['Familj'] = raw_df['Familj']
     # Use encoded IdrottsID as id
     output_df['ID'] = raw_df['IdrottsID'].apply(lambda x: base_encode(int(x.replace('IID',''))))
@@ -262,7 +260,6 @@ def create_youth_contactlist(name, df_src, df_p):
     '''
     # Include persons only in current group
     df_c = df_src[df_src['UGrupp'].isin([name])].copy()
-    #print(df_c)
 
     # Merge parents with children - in two steps
     df_m = pd.merge(df_c, df_p[df_p['parent_no'] == 1], how='left', left_on='key', right_on='ref', suffixes=('','1'))
@@ -271,11 +268,6 @@ def create_youth_contactlist(name, df_src, df_p):
         'År i år1', 'Grupp1', 'UGrupp1','Familj1', 'ref', 'parent_no',
         'Parent2', 'Födelsedatum2', 'År i år2', 
         'Grupp2', 'UGrupp2', 'Familj2', 'ref2', 'parent_no2'], inplace=True)
-    #print("Mergeds parents")
-    #print(df_m)
-    #df_m.sort_values(by=['Efternamn', 'Förnamn']).to_csv(path_out+normalize_group_name(name,True,False)+'.csv')
-    #df_m.sort_values(by=['Efternamn', 'Förnamn']).to_excel(path_out+normalize_group_name(name,True,False)+'.xlsx',
-    #    index=False, freeze_panes=(1,0), sheet_name='Kontaktlista')
     
     # To Excel
     save_templated_youth_excel(youth_contactlist_template,df_m,path_out+normalize_group_name(name,True,False)+'.xlsx')
@@ -284,34 +276,7 @@ def create_youth_contactlist(name, df_src, df_p):
     df_m.sort_values(by=['Efternamn', 'Förnamn']).to_csv(path_out+normalize_group_name(name,True,False)+'.csv')
 
     # To JSON - split seems to be best
-    #df_m[['Förnamn', 'Efternamn', 'ID', 'År i år']].sort_values(by=['Efternamn', 'Förnamn']).to_json(path_out+normalize_group_name(name,True,False)+'.json')
-    #df_m[['Förnamn', 'Efternamn', 'ID', 'År i år']].sort_values(by=['Efternamn', 'Förnamn']).to_json(path_out+normalize_group_name(name,True,False)+'_records.json', orient='records')
-    #df_m[['Förnamn', 'Efternamn', 'ID', 'År i år']].sort_values(by=['Efternamn', 'Förnamn']).to_json(path_out+normalize_group_name(name,True,False)+'_values.json', orient='values')
     df_m[['Förnamn', 'Efternamn', 'ID', 'År i år']].sort_values(by=['Efternamn', 'Förnamn']).to_json(path_out+'json/'+normalize_group_name(name,True,False)+'.json', orient='split', force_ascii=False)
-    #df_m[['Förnamn', 'Efternamn', 'ID', 'År i år']].sort_values(by=['Efternamn', 'Förnamn']).to_json(path_out+normalize_group_name(name,True,False)+'_index.json', orient='index')
-    #df_m[['Förnamn', 'Efternamn', 'ID', 'År i år']].sort_values(by=['Efternamn', 'Förnamn']).to_json(path_out+normalize_group_name(name,True,False)+'_table.json', orient='table')
-    #df_m[['Förnamn', 'Efternamn', 'ID', 'År i år']].sort_values(by=['Efternamn', 'Förnamn']).to_json(path_out+normalize_group_name(name,True,False)+'_columns.json', orient='columns')
-
-    '''
-    # Try to match parents with each child
-    df_with_parents = pd.merge(df, df_parents, on='key')
-    print(df)
-    print(df_with_parents)
-
-    df_m = pd.merge(df_c, df_p[df_p['parent_no'] == 1], how='outer', left_on='key', right_on='ref', suffixes=('','1'))
-    df_m = pd.merge(df_m, df_p[df_p['parent_no'] == 2], how='outer', left_on='key', right_on='ref', suffixes=('','2'))
-    df_m.drop(columns=['key','ref','parent_no','key1','key2','ref1','ref2','parent_no2'], inplace=True)
-
-
-    # Fine tune columns
-    df.drop(columns=['Parent', 'Grupp', 'Medlem sedan', 'key'], inplace=True)
-    df.rename(columns = {'UGrupp':'Grupp'}, inplace=True)
-    # mc_partial_df = merged_df[['Förnamn_mc','Efternamn_mc','Personnummer','MedlemsID']].copy()
-
-    # Save with and without parents
-    df.to_csv(path_out+normalize_group_name(name,True)+'.csv')
-    df_with_parents.to_csv(path_out+normalize_group_name(name,True)+'_parents.csv')
-    '''
 
 def create_contactlist(name, df):
     '''
@@ -320,16 +285,8 @@ def create_contactlist(name, df):
     - df: Unfiltered group of persons 
     '''
     print("Create contactlist for group: {}".format(name))
-    #df = df[df_src['Grupp'].str.contains(name)] 
-
-    #print(df['Grupp'].head())
-    #print("df")
-    #print(df[['Förnamn','Efternamn','Grupp']].head())
 
     df.drop(columns=['Parent', 'Grupp', 'UGrupp','Familj'], inplace=True)
-    ##df.sort_values(by=['Efternamn', 'Förnamn']).to_csv(path_out+normalize_group_name(name,True,False)+'.csv')
-    #df.sort_values(by=['Efternamn', 'Förnamn']).to_excel(path_out+normalize_group_name(name,True,False)+'.xlsx',
-    #    index=False, freeze_panes=(1,0), sheet_name='Kontaktlista')
 
     # To Excel
     save_templated_youth_excel(youth_contactlist_template,df,path_out+normalize_group_name(name,True,False)+'.xlsx')
@@ -347,19 +304,12 @@ if "contact_list" == cmd:
     print("Create contact list file")
     df_all = get_all_from_export(io_export_file_name)
     #df_all.to_csv(path_out+'all.csv')
-    #print(df_all.head(10))
-    #print(df_all.columns)
 
     # Get df for children (training in defined group)
-    #df_training_children = df_all[~df_all['Parent'].notnull() & df_all['Grupper'].str.contains("Orange-Violett")]
     df_training_children = df_all[~df_all['Parent'].notnull() & df_all['UGrupp'].isin(youth_groups)].copy()
     
     # Construct key - so we can map this to parents later on
     df_training_children['key'] = df_training_children.apply(lambda x: names_to_key(x['Förnamn'],x['Efternamn']),axis=1)
-    #df_training_children['parent_no'] = df_training_children.groupby(['key'], dropna=False)['key'].cumcount()+1
-
-    #print("Ungdomsgrupper")
-    #print(df_training_children)
 
     # Get df for only parents
     df_parents = df_all[df_all['Parent'].notnull()].copy()
@@ -367,13 +317,9 @@ if "contact_list" == cmd:
     # Construct key ref - so we can map this to children later
     df_parents['ref'] = df_parents.apply(lambda x: parentinfo_to_key(x['Parent']),axis=1)
     df_parents['parent_no'] = df_parents.groupby(['ref'], dropna=False)['ref'].cumcount()+1
-    #print("Föräldrar")
-    #print(df_parents[['Förnamn','Efternamn','key']].head())
 
     # Create contact list for each youth group separately
     for grp in youth_groups:
-        #print("Create contact list for group: {}".format(grp))
-        #df = df_training_children[df_training_children['UGrupp'].isin([grp])]
         df = df_training_children[(df_all['Grupp'].apply(lambda x: group_in_groups(x,grp)))].copy()
         create_youth_contactlist(grp, df, df_parents)
 
@@ -382,28 +328,8 @@ if "contact_list" == cmd:
         # No parents allowed here - they are all duplicates
         ##df = df_all[df_all['Parent'].notnull() & df_all['Grupp'].isin([grp])].copy()
 
-        ## Kvar att fixa
-        #df[~(df['var1'].str.len()>0)]
         df = df_all[(~(df_all['Parent'].str.len()>0)) & (df_all['Grupp'].apply(lambda x: group_in_groups(x,grp)))].copy()
-        #print("utan parents")
-        #print(df.head(10))
         create_contactlist(grp, df)
-        #create_contactlist(grp, df_all[~df_all['Parent'].notnull()])
-
-    #df_junior = df_training_children[df_training_children['UGrupp'].isin(['OL Junior'])]
-    #print(df_junior)
-
-
-    #df_play
-    #print(df_play)
-
-    # Export
-    #df_training_children.to_csv(path_out+'ungdomsgrupper.csv')
-    #df_all.to_csv(path_out+'data.csv')
 
 print("Tidsåtgång: " + str(round((time.time() - start_time),1)) + " s")
 print((" Klart (" + strftime("%Y-%m-%d %H:%M") + ") ").center(80, "-"))
-
-
-#print("encoded: {}".format(base_encode(123)))
-#print("encoded: {}".format(base_encode(1234)))
