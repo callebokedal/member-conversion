@@ -6,11 +6,98 @@ from pathlib import Path
 from datetime import date
 import time 
 from time import strftime
+import re
+
+
+os.environ["TZ"] = "Europe/Stockholm"
+time.tzset()
+today = date.today()
+path_out = '/usr/src/app/files/contact-list/created/'     # Output path
 
 '''
 For testing thing regarding members  
 '''
 print("Testing members methods")
+
+def calculate_type(birth_date):
+    age = 0
+    print(type(birth_date))
+    print(birth_date)
+    if pd.isna(birth_date):
+        age = 0
+    else:
+        age = today.year - int(birth_date[0:4])
+    return "Ungdom" if age < 25 else "Vuxen"
+
+def calculate_time(t):
+    result = ""
+
+    # https://docs.python.org/3/howto/regex.html
+    p = re.compile(r'\d+')
+
+    if pd.isna(t):
+        result = "-"
+    else:
+        list = p.findall(t)
+        if len(list) > 1:
+            result = list[0] + ":" + list[1].rjust(2,"0")
+        else:
+            list.append(0)
+            result = list[0] + ":00"
+
+        # Calculate time diff
+        #time_diff = abs((42*60 + 12) - (int(list[0])*60 + int(list[1])))
+        
+        # Convert to min and sec
+        result = result #+ " - " + time.strftime("%M:%S", time.gmtime(time_diff))
+        #time = time + " - " + str(time_diff)
+    return result
+
+def calculate_timediff(t):
+    result = "?"
+    # https://docs.python.org/3/howto/regex.html
+    p = re.compile(r'\d+')
+    if pd.isna(t) or t == "-":
+        result = "60:00"
+    else:
+        #print(t)
+        list = p.findall(t)
+        #print(list)
+        # Calculate time diff
+        time_diff = abs((42*60 + 12) - (int(list[0])*60 + int(list[1])))
+        # Convert to min and sec
+        result = time.strftime("%M:%S", time.gmtime(time_diff))
+    return result
+
+def handle_crazy_competition():
+    _dtype = {'Förnamn': 'string','Efternamn': 'string','Födelsedatum': 'string', 'Medlemsnr.': 'string',
+        'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+        'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'}
+    # Open file from Eventor export
+    df = pd.read_excel("files/contact-list/Registration_22_4.xlsx",
+                dtype = _dtype)
+
+    # Add/update extra columns
+    df['Typ'] = df['Födelsedatum'].apply(calculate_type)
+    df['Födelsedatum'] = df['Födelsedatum'].dropna().apply(lambda x: x[0:10])
+    df['Tid'] = df['Gissning'].apply(calculate_time) 
+    df['Diff'] = df['Tid'].apply(calculate_timediff) 
+
+    df.sort_values(by=['Diff','Tid','Efternamn', 'Förnamn'], ascending=True, inplace=True, ignore_index=True)
+
+    print(df)
+
+    # Keep only "Ungdom" records
+    df = df[df['Typ'].str.contains("Ungdom")]
+
+    df[['Förnamn','Efternamn','Typ','Gissning','Tid','Diff']].to_csv(path_out+"Tävling_22_4_result.csv", index=False)
+    df[['Förnamn','Efternamn','Typ','Gissning','Tid','Diff']].to_excel(path_out+"Tävling_22_4_result.xlsx", index=False)
+
+    print("Done. Execution will terminate and exit")
+    sys.exit(0)
+
+# Execute calculation of crazy event held on 2021-04-22
+handle_crazy_competition()
 
 #def fill_key(key, ref):
 #    if not key:
