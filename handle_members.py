@@ -335,7 +335,6 @@ def create_youth_contactlist(name, df_src, df_p):
 
     # Merge parents with children - in two steps
     add_rule("Målsmän används som föräldrar för ungdomar")
-    print(df_p.head(10))
     df_m = pd.merge(df_c, df_p[df_p['parent_no'] == 1], how='left', left_on='key', right_on='ref', suffixes=('','1'))
     df_m = pd.merge(df_m, df_p[df_p['parent_no'] == 2], how='left', left_on='key', right_on='ref', suffixes=('','2'))
     df_m.drop(columns=['Parent', 'Grupp', 'UGrupp', 'key', 'Parent1', 'Födelsedatum1', 'Registrerad1', 'Prova-på1',
