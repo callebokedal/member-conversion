@@ -239,6 +239,28 @@ def one_mc_groupto_io(single_group):
         print("Warning - unhandled group: " + g)
         return None
 
+def normalize_phonenumber(number):
+    """
+    Convert phone number to normalized string
+    """
+    number = number.strip()
+    if number == "": 
+    	return ""
+    if len(number.strip()) == 6:
+        number = "031{}".format(number)
+    number = number.replace("+46","0")
+    if number.startswith("03"):
+        # Assume fixed phone
+        return "{}-{}".format(number[0:3], number[3:])
+    elif number.startswith("08"):
+        # Assume fixed phone
+        return "{}-{}".format(number[0:2], number[2:])
+    elif number.startswith("010"):
+        return "{}-{}".format(number[0:3], number[3:])
+    else:
+        # Assume mobile number
+        return "{}-{}".format(number[0:4], number[4:])
+
 def normalize_email(x):
     """
     Convert to lower and strip whitespaces, if string

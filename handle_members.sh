@@ -8,6 +8,5 @@
 clear && docker run -it --rm --name my-test-script -v "$PWD":/usr/src/app -w /usr/src/app python-slim-buster python \
     handle_members.py \
     contact_list \
-    files/contact-list/2021-04-12_Exported-OL-All.xlsx \
-    files/contact-list/created/2021-04-12_Kontakt-lista_OL.xlsx 
+    files/contact-list/2021-04-25_Exported-OL-All.xlsx 
 

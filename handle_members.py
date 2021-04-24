@@ -14,7 +14,7 @@ from packages.encoder import base_encode, base_decode
 from packages.utils import convert_countrycode, convert_postnr, \
     normalize_email, concat_special_cols, \
     normalize_postort, concat_group_id, add_comment_info, \
-    validate_file
+    validate_file, normalize_phonenumber
 
 '''
 Idea:
@@ -98,10 +98,19 @@ def _read_io_file(file_name, columns = None):
     """
     Read from IO file and return dataframe. Converts incoming data.
     """
+    #_dtype = {'Förnamn': 'string','Efternamn': 'string','Födelsedat./Personnr.': 'string', 'Medlemsnr.': 'string',
+    #    'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+    #    'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'}
     _dtype = {'Förnamn': 'string','Efternamn': 'string','Födelsedat./Personnr.': 'string', 'Medlemsnr.': 'string',
-        'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
-        'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'}
-    _converters = {'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
+        'Övrig medlemsinfo': 'string', 'Typ':'string'}
+    _converters = {
+        'Telefon mobil':normalize_phonenumber, 
+        'Telefon bostad':normalize_phonenumber, 
+        'Telefon arbete':normalize_phonenumber, 
+        'Hemtelefon':normalize_phonenumber, 
+        'Mobiltelefon':normalize_phonenumber, 
+        'Arbetstelefon':normalize_phonenumber, 
+        'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
         'Kontakt 1 epost':normalize_email, 
         'Postnummer':convert_postnr, 
         'Kontaktadress - Postort':normalize_postort,
@@ -123,6 +132,7 @@ def get_all_from_export(io_export_file_name):
     """
     # Get IO Export
     raw_df = _read_io_file(io_export_file_name)
+    raw_df.to_csv(path_out+'csv/_all.csv')
     stats("Antal medlemmar exporterade från IO: {} ({})".format(str(len(raw_df)), Path(io_export_file_name).name))
 
     # Convert to nice format
@@ -132,9 +142,7 @@ def get_all_from_export(io_export_file_name):
     output_df['Parent'] = raw_df['Målsman']
     output_df['Födelsedatum'] = raw_df['Födelsedat./Personnr.']
     add_rule("'År i år' är inte exakt antal år, utan just 'år i år'")
-    output_df['År i år'] = output_df['Födelsedatum'].apply(calculate_age_class) 
-    #output_df['Typ'] = output_df['År i år'].apply(calculate_age_type) 
-    #output_df['Ledare'] = ""
+    output_df['År i år'] = output_df['Födelsedatum'].apply(calculate_age_class)
     output_df['Mobil'] = raw_df['Telefon mobil']
     output_df['Telefon bostad'] = raw_df['Telefon bostad']
     add_rule("'E-post kontakt' används som 'E-post'")
@@ -149,8 +157,8 @@ def get_all_from_export(io_export_file_name):
     # Use encoded IdrottsID as id
     add_rule("Unikt ID per person har skapats")
     output_df['ID'] = raw_df['IdrottsID'].apply(lambda x: base_encode(int(x.replace('IID',''))))
-    #output_df['Medlem sedan'] = raw_df['Medlem sedan']
-    #output_df['Registreringsdatum'] = raw_df['Registreringsdatum']
+    output_df['Registrerad'] = raw_df['Registreringsdatum']
+    output_df['Prova-på'] = raw_df['Typ'].dropna().apply(lambda x: str(x).replace("P","Ja"))
     
     return output_df
 
@@ -158,7 +166,6 @@ def group_in_groups(groups, grp):
     '''
     Check if group 'A' is in list [' A','B','C'] (True)
     '''
-    #print("groups: {}".format(groups))
     if groups is np.nan:
         return False
 
@@ -188,16 +195,6 @@ def calculate_age_class(birth_date):
     if pd.isna(birth_date):
         return ""
     return today.year - int(birth_date[0:4])
-
-#def calculate_age_type(year_this_year):
-#    '''
-#    Return Ungdom or Vuxen (>25)
-#    '''
-#    if pd.isna(year_this_year):
-#        return ""
-#    if year_this_year < 25:
-#        return "Ungdom"
-#    return "Vuxen"
 
 def names_to_key(fname,lname):
     '''
@@ -244,7 +241,6 @@ def save_templated_youth_excel(template, df, filename, rules):
         row += 1
 
     # Kontaktlista
-    #ws = wb.active
     ws = wb["Kontaktlista"]
     for rowidx, row in df.iterrows():
         col = 1
@@ -332,16 +328,19 @@ def create_youth_contactlist(name, df_src, df_p):
     - df_src: Data frame with only children of this group
     - df_p: Data frame with all parents (all groups)
     '''
+    print("Create youth contactlist for group: {}".format(name))
+
     # Include persons only in current group
     df_c = df_src[df_src['UGrupp'].isin([name])].copy()
 
     # Merge parents with children - in two steps
     add_rule("Målsmän används som föräldrar för ungdomar")
+    print(df_p.head(10))
     df_m = pd.merge(df_c, df_p[df_p['parent_no'] == 1], how='left', left_on='key', right_on='ref', suffixes=('','1'))
     df_m = pd.merge(df_m, df_p[df_p['parent_no'] == 2], how='left', left_on='key', right_on='ref', suffixes=('','2'))
-    df_m.drop(columns=['Parent', 'Grupp', 'UGrupp', 'key', 'Parent1', 'Födelsedatum1',
+    df_m.drop(columns=['Parent', 'Grupp', 'UGrupp', 'key', 'Parent1', 'Födelsedatum1', 'Registrerad1', 'Prova-på1',
         'År i år1', 'Grupp1', 'UGrupp1','Familj1', 'ref', 'parent_no',
-        'Parent2', 'Födelsedatum2', 'År i år2', 
+        'Parent2', 'Födelsedatum2', 'Registrerad2', 'Prova-på2', 'År i år2', 
         'Grupp2', 'UGrupp2', 'Familj2', 'ref2', 'parent_no2'], inplace=True)
     
     add_rule("För ungdomsgrupper visas ungdomar först, vuxna sist")
@@ -357,11 +356,9 @@ def create_youth_contactlist(name, df_src, df_p):
     save_templated_youth_excel(youth_contactlist_template,df_m,path_out+normalize_group_name(name,True,False)+'_listor.xlsx', get_rules())
     
     # To CSV
-    #df_m.sort_values(by=['Typ','Efternamn', 'Förnamn']).to_csv(path_out+'csv/'+normalize_group_name(name,True,False)+'_kontaktlista.csv')
     df_m.to_csv(path_out+'csv/'+normalize_group_name(name,True,False)+'_kontaktlista.csv')
 
     # To JSON - split seems to be best
-    #df_m[['Förnamn', 'Efternamn', 'ID', 'År i år']].sort_values(by=['Typ','Efternamn', 'Förnamn']).to_json(path_out+'json/'+normalize_group_name(name,True,False)+'.json', orient='split', force_ascii=False)
     df_m[['Förnamn', 'Efternamn', 'ID', 'År i år']].to_json(path_out+'json/'+normalize_group_name(name,True,False)+'.json', orient='split', force_ascii=False)
 
 def create_contactlist(name, df):
@@ -377,7 +374,6 @@ def create_contactlist(name, df):
     df.index = np.arange(1,len(df)+1)
 
     # To Excel
-    # save_templated_youth_excel(youth_contactlist_template,df,path_out+normalize_group_name(name,True,False)+'_listor.xlsx')
     save_templated_excel(contactlist_template,df,path_out+normalize_group_name(name,True,False)+'_listor.xlsx', get_rules())
 
     # To CSV
@@ -402,26 +398,13 @@ if "contact_list" == cmd:
 
     # Get df for only parents
     df_parents = df_all[df_all['Parent'].notnull()].copy()
-    #print(df_parents.head(10))
 
     # Idrott Online exports children without "målsmän" wrong
     # These children becomes parents ("målsmän") to themselves which must be wrong
     # Removing theses erroneous rows
-    #ind = df_all['Parent'].notnull()
-    #df1 = df_all.loc[~ind] # Anyone, not being a parent (for this record)
-    #df2 = df_all.loc[ind]  # Parents (but including Idrott Online mistakes)
-    #df1.to_csv(path_out+"df1.csv")
-    #df2.to_csv(path_out+"df2.csv")
-
-    # df.apply(lambda x: func(x['col1'],x['col2']),axis=1)
-    #io_bug = df2[df2.apply(lambda x: io_bug_detector(x['Förnamn'],x['Efternamn'],x['Parent']), axis=1)]
     io_bug = df_parents.apply(lambda x: io_bug_detector(x['Förnamn'],x['Efternamn'],x['Parent']), axis=1)
     # Exclude persons that is parents to themselves - according to IO
     df_parents = df_parents.loc[~io_bug]
-    #df_parents.to_csv(path_out+"df_parents2.csv")
-    #io_bug = df2[['Förnamn','Efternamn','Parent']]
-    #print(io_bug)
-    #print(df_parents.head(10))
 
     # Get df for children (training in defined group)
     df_training_children = df_all[~df_all['Parent'].notnull() & df_all['UGrupp'].isin(youth_groups)].copy()
@@ -435,15 +418,11 @@ if "contact_list" == cmd:
 
     # Create contact list for each youth group separately
     for grp in youth_groups:
-        #df = df_training_children[(df_all['Grupp'].apply(lambda x: group_in_groups(x,grp)))].copy()
         df = df_training_children[(df_training_children['Grupp'].apply(lambda x: group_in_groups(x,grp)))].copy()
         create_youth_contactlist(grp, df, df_parents)
 
     # Create contact lists for other groups separately 
     for grp in youth_coach_groups + other_groups:
-        # No parents allowed here - they are all duplicates
-        ##df = df_all[df_all['Parent'].notnull() & df_all['Grupp'].isin([grp])].copy()
-
         df = df_all[(~(df_all['Parent'].str.len()>0)) & (df_all['Grupp'].apply(lambda x: group_in_groups(x,grp)))].copy()
         create_contactlist(grp, df)
 
