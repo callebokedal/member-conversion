@@ -37,8 +37,8 @@ start_time = time.time()
 # Config
 path_in =  '/usr/src/app/files/contact-list/'             # Required base path
 path_out = '/usr/src/app/files/contact-list/created/'     # Output path
-youth_contactlist_template = path_in+'templates/template_youth_contactlist.xlsx'
-contactlist_template = path_in+'templates/template_contactlist.xlsx'
+youth_contactlist_template = '/usr/src/app/templates/template_youth_contactlist.xlsx'
+contactlist_template = '/usr/src/app/templates/template_contactlist.xlsx'
 # Rules to add to export - as information
 _rules = set({})
 
