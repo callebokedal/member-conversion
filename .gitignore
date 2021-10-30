@@ -13,6 +13,8 @@ sync_last.sh
 check_status.sh
 flask.py
 
+.vscode
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
