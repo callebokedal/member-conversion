@@ -1,5 +1,10 @@
 # SFK Members
-Scripts to move members from My Club into IdrottOnline
+Scripts to move members from My Club into IdrottOnline.
+
+```from_mc_to_io.py``` is meant for moving Members from My Club to IdrottOnline. Lots of manual executions performed, code changed/imrpoved during the process.
+This means that the code needs to be validated before anyone should re-use it. But "all" necessary functions, examples etc. are in place (just verify before executing live).
+
+```from_io_to_mc.py``` is for moving members from Idrott Online into My Club.
 
 ## Tips
 https://pythonspeed.com/articles/base-image-python-docker-images/
@@ -29,28 +34,8 @@ clear && docker run -it --rm --name my-test-script -v "$PWD":/usr/src/app -w /us
 ```
 ## Convert and join My Club and IO members
 ```bash
-clear && docker run -it --rm --name my-test-script -v "$PWD":/usr/src/app -w /usr/src/app python-slim-buster python convert_members.py files/2020-11-14_MyClub_all_member_export.xls files/2020-11-13_MyClub_invoice_export.xls files/2020-11-11_all-io-members2.xlsx
-```
-
-# My Club helper
-To get memberId and full Personnummer
-Note! Check visible columns - to get them to match the script below
-
-How to?
-1. Login to My Club. Go to members. 
-2. Make sure all rows/members are visible on the same (one) page
-3. Open bowser developer console
-4. Paste and execute script below
-5. Copy to textfile. See handle_members.py for action (of joining this data)
-```js
-var s = ""; document.querySelectorAll("#member-list-table tr").forEach(row => {
-	if(row.querySelector("td:nth-child(3)")) {
-		var mId = row.querySelector("td:nth-child(3)").innerText;
-		var pNr = row.querySelector("td:nth-child(4)").innerText;
-	  //console.log(mId);
-	  //console.log(pNr);
-	  //console.info(mId + ", " + pNr);
-		s += mId + ", " + pNr + "\n";
-	}
-}); console.info(s);
+clear && docker run -it --rm --name my-test-script -v "$PWD":/usr/src/app -w /usr/src/app python-slim-buster python convert_members.py \
+	files/2020-11-14_MyClub_all_member_export.xls \
+	files/2020-11-13_MyClub_invoice_export.xls \
+	files/2020-11-11_all-io-members2.xlsx
 ```

@@ -7,11 +7,12 @@ from datetime import date
 import time 
 from time import strftime
 
-from utils import convert_countrycode, convert_mc_personnummer_to_io, convert_postnr, \
+from packages.utils import convert_countrycode, convert_mc_personnummer_to_io, convert_postnr, \
     clean_pii_comments, convert_mc_groups_to_io_groups, normalize_email, concat_special_cols, \
     normalize_postort, mc_family_to_id, concat_group_id, add_comment_info, \
     _read_mc_file, _read_io_file, _convert_mc_to_io_format, \
-    convert_io_comment_to_mc_member_id, extract_mc_medlemsid, search_medlemsid_from_io
+    convert_io_comment_to_mc_member_id, extract_mc_medlemsid, search_medlemsid_from_io, \
+    validate_file
 
 """
 Script to export members from My Cloud and import in Idrott Online
@@ -28,14 +29,6 @@ timestamp = str(strftime("%Y-%m-%d_%H.%M")) # Timestamp to use for filenames
 # Remeber start time
 start_time = time.time()
 
-# Validation util
-def validate_file(file_name, nr):
-    if not Path(file_name).exists():
-        sys.exit("Illegal file (" + str(int(nr)) + ")")
-
-    fpath = Path(file_name).resolve()
-    if not str(fpath).startswith(path):
-        sys.exit("Illegal file path (" + str(int(nr)) + ")")
 
 path = '/usr/src/app/files/'            # Required base path
 path_out = '/usr/src/app/files/last/'   # Output path
@@ -243,7 +236,10 @@ def update_medlemsid_in_io(mc_file_name, io_file_name):
     save_file(path + timestamp + '_membersid_for_io_import.xlsx', io_for_import_df)
     stats("Sparat: " + path + timestamp + '_membersid_for_io_import.xlsx')
     # print(for_io_import_df.head())
-    return
+
+    disabledBelow1 = True
+    if disabledBelow1:
+        return
 
     # Done?
    
@@ -272,6 +268,7 @@ def update_medlemsid_in_io(mc_file_name, io_file_name):
     #comp_df = df1.compare(df2)
     #save_file('/usr/src/app/files/' + date_today + '_mc-io_comparison.xlsx', comp_df)
     
+
     # 3. Save file with all members from MC in correct format (still need to cross check with IO!)
     save_file(path + timestamp + '_all_mc_in_io_format.xlsx', for_io_import_df)
     stats("Sparat: " + path + timestamp + '_all_mc_in_io_format.xlsx')
@@ -287,7 +284,9 @@ def update_medlemsid_in_io(mc_file_name, io_file_name):
     stats("Antal medlemmar i IO: " + str(len(for_io_import_df)) + " (" + Path(io_file_name).name + ")")
 
     # TODO: Finish below
-    return
+    disabledBelow2 = True
+    if disabledBelow2:
+        return
 
     # For import
     # TODO Remove this later!
@@ -305,11 +304,11 @@ def update_medlemsid_in_io(mc_file_name, io_file_name):
 
     # Label: 'Export-2' - Current members in IO updated in IO with new data from MC
     for_io_import_df = pd.merge(mc_read_df, for_io_import_df,
-                     #on = 'Födelsedat./Personnr.',
-                     on = 'Personnummer',
-                     how = 'right',
-                     suffixes = ('_mc','_io'),
-                     indicator = True)
+                    #on = 'Födelsedat./Personnr.',
+                    on = 'Personnummer',
+                    how = 'right',
+                    suffixes = ('_mc','_io'),
+                    indicator = True)
 
     # Filter - only with full personnummer
     for_io_import_df = for_io_import_df[for_io_import_df['Födelsedat./Personnr.'].str.len() > 8]
@@ -644,8 +643,7 @@ def check_status(mc_file_name, io_file_name):
 
 def sync_last_ones(mc_file_name, mc_invoice_file, io_file_name):
     """
-    Export last ones from My Club to IO.
-    - Those which have incomplete personnummer
+    Export last ones from My Club to IO
     """
     # Get data from latest MC export
     mc_read_df = _read_mc_file(mc_file_name)
@@ -659,12 +657,18 @@ def sync_last_ones(mc_file_name, mc_invoice_file, io_file_name):
     stats("Antal fakturor i MC:  {} ({})".format(str(len(mc_invoice_df)), Path(mc_invoice_file).name))
     # Merge in invoice details
     # Added later as special column
-    mc_read_df = mc_read_df.merge(mc_invoice_df, on='MedlemsID', how='left', suffixes=(None,'_inv'), validate = "one_to_one")
+    #mc_read_df = mc_read_df.merge(mc_invoice_df, on='MedlemsID', how='left', suffixes=(None,'_inv'), validate = "one_to_one")
+    mc_read_df = mc_read_df.merge(mc_invoice_df, on='MedlemsID', how='left', suffixes=(None,'_inv'), validate = "1:m")
 
     # Get data from latest IO export
     io_read_df = _read_io_file(io_file_name)
     # print(io_read_df.columns)
     stats("Antal inlästa från IO: {:>4} ({})".format(str(len(io_read_df)), Path(io_file_name).name))
+
+    # Get MedlemsID from IO - if we can find it
+    io_read_df['MC_MedlemsID'] = [search_medlemsid_from_io(comment, medlemsnr)
+        for comment, medlemsnr 
+        in zip (io_read_df['Övrig medlemsinfo'], io_read_df['Medlemsnr.'])]
 
     # Stats about personnummer
     stats("Antal med ofullständiga personnummer I MC: {:>4} st".format(str(len(mc_read_df[mc_read_df['Personnummer'].str.len() == 8]))))
@@ -673,12 +677,15 @@ def sync_last_ones(mc_file_name, mc_invoice_file, io_file_name):
     stats("Antal med  fullständiga personnummer I IO: {:>4} st".format(str(len(io_read_df[io_read_df['Födelsedat./Personnr.'].str.len() == 13]))))
 
     # Merge on all 'Personnummer','Förnamn','Efternamn'
-    print("MC " + "> Merge (left: pnr+fn+en) <".center(40, "-") + " IO")
+    print("MC " + "> Merge (MedlemsID) <".center(40, "-") + " IO")
     merged_df = pd.merge(mc_read_df, io_read_df,
-        left_on = ['Personnummer','Förnamn','Efternamn'],
-        right_on = ['Födelsedat./Personnr.','Förnamn','Efternamn'],
+        left_on = ['MedlemsID'],
+        right_on = ['MC_MedlemsID'],
+        #left_on = ['Personnummer','Förnamn','Efternamn'],
+        #right_on = ['Födelsedat./Personnr.','Förnamn','Efternamn'],
         how = 'left',
-        suffixes = ('_mc','_io'),
+        #suffixes = ('_mc','_io'),
+        suffixes = ('','_io'),
         indicator = True)
     stats("Antal efter merge: {:>8}".format(str(len(merged_df))))
     stats("Antal lika (på personnummer): {:>12} (fullst. + icke fullständiga)".format(str(len(merged_df))))
@@ -717,7 +724,7 @@ def sync_last_ones(mc_file_name, mc_invoice_file, io_file_name):
 #    mc_in_io_format_df['Alt. förnamn'] = mc_export_df['']  # Found none in MC
     mc_in_io_format_df['Efternamn'] = merged_df['Efternamn']
     mc_in_io_format_df['Kön'] = merged_df['Kön (flicka/pojke)']
-    mc_in_io_format_df['Nationalitet'] = merged_df['Nationalitet_mc'].replace('SE','Sverige')
+    mc_in_io_format_df['Nationalitet'] = merged_df['Nationalitet'].replace('SE','Sverige')
 #    mc_in_io_format_df['IdrottsID'] = mc_export_df[''] 
     mc_in_io_format_df['Födelsedat./Personnr.'] = merged_df['Personnummer'] #.astype('string').apply(convert_personnummer) 
     mc_in_io_format_df['Telefon mobil'] = merged_df['Mobiltelefon']
@@ -774,7 +781,7 @@ def sync_last_ones(mc_file_name, mc_invoice_file, io_file_name):
     # Req. for incomplete personnummer:
     # "namn, födelsedatum (år, månad, dag), kön, nationalitet och minst en angiven adress"
 
-    last_filename = path_out + timestamp + '_5-err_import.xlsx'
+    last_filename = path_out + timestamp + '_last-5_import.xlsx'
     save_file(last_filename, mc_in_io_format_df)
     #print(mc_in_io_format_df)
     #save_file(last_filename, merged_df)

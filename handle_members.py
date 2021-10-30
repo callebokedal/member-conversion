@@ -1,108 +1,429 @@
+# pylint: disable=import-error
 import pandas as pd
 import numpy as np
-import os
+import shutil
+import os, sys
+from pathlib import Path
+from datetime import date
+import time 
+from time import strftime
+import openpyxl
+from openpyxl import Workbook
+from openpyxl import load_workbook
+from packages.encoder import base_encode, base_decode
+from packages.utils import convert_countrycode, convert_postnr, \
+    normalize_email, concat_special_cols, \
+    normalize_postort, concat_group_id, add_comment_info, \
+    validate_file, normalize_phonenumber
 
-path = '/usr/src/app/files'
+'''
+Idea:
+1. Automate login and export of all members (see next bullet)
+2. Export All OL-member, including "målsman"
+3. Use pre-created Excel-templates and fill with exported data
+'''
 
-def list_all_files(path):
-    """
-    List all files in path
-    """
-    with os.scandir(path) as it:
-        for entry in it:
-            print(entry.name)
+# Update to correct timezone
+os.environ["TZ"] = "Europe/Stockholm"
+time.tzset()
 
-# Dataframe for members
-members=None
-def read_file(file_name):
+today = date.today()
+date_today = today.strftime("%Y-%m-%d")
+timestamp = str(strftime("%Y-%m-%d_%H.%M")) # Timestamp to use for filenames
+
+# Remeber start time
+start_time = time.time()
+
+# Config
+path_in =  '/usr/src/app/files/contact-list/'             # Required base path
+path_out = '/usr/src/app/files/contact-list/created/'     # Output path
+youth_contactlist_template = '/usr/src/app/templates/template_youth_contactlist.xlsx'
+contactlist_template = '/usr/src/app/templates/template_contactlist.xlsx'
+# Rules to add to export - as information
+_rules = set({})
+
+# Groups of interest
+youth_groups=['OL Grön', 'OL Vit-Gul', 'OL Orange-Violett', 'OL Junior'] # 'OL Ungdom vilande' intentionally left out
+youth_coach_groups=['OL Ledare - Grön', 'OL Ledare - Vit-Gul', 'OL Ledare - Orange-Violett', 'OL Ledare - Junior']
+other_groups=['OL Tisdagsträning-sommar', 'OL Tisdagsträning-vinter', 'OL Wendelsbergsträning']
+
+# Get args
+if len(sys.argv) > 1:
+    cmd  = sys.argv[1]
+
+if len(sys.argv) > 2:
+    io_export_file_name = sys.argv[2]
+    validate_file(io_export_file_name, 2)
+
+if len(sys.argv) > 3:
+    output_file_name = sys.argv[3]
+    print(output_file_name)
+    #validate_file(output_file_name, 3)
+
+# Functions
+
+# def save_file_plain(file_name, df):
+#     """
+#     Save to Excel file
+#     """
+#     df.to_excel(file_name, index=False)
+#     return df
+
+def save_file(file_name, df, color = True):
     """
-    Read and return Excel file as df
+    Save to Excel file
     """
-    df = pd.read_excel(file_name, dtype = {'Hemtelefon': object, 'Mobiltelefon': object, 'Arbetstelefon': object})
+    # To get colors to work
+    writer = pd.ExcelWriter(file_name, engine='xlsxwriter')
+    df.to_excel(writer, index=False)
+
+    #writer.save()
+    # df.to_excel(file_name, index=False)
     return df
 
-id_df=None
-def read_id_file(file_name):
+def stats(text):
     """
-    Read file with member id and personnummer
+    Utility function to print stats. Easy to disable...
     """
-    df = pd.read_csv(file_name, header=None, names=['MedlemsID', 'Personnummer2'], dtype = {'Personnummer2': object})
+    if True:
+        print(text)
 
-    # Fix dtype problem - we don't want scientific value out
+def add_rule(rule):
+    _rules.add(rule)
+
+def get_rules():
+    return _rules
+
+def _read_io_file(file_name, columns = None):
+    """
+    Read from IO file and return dataframe. Converts incoming data.
+    """
+    #_dtype = {'Förnamn': 'string','Efternamn': 'string','Födelsedat./Personnr.': 'string', 'Medlemsnr.': 'string',
+    #    'Telefon mobil': 'string', 'Telefon bostad': 'string', 'Telefon arbete': 'string', 'Hemtelefon': 'string', 
+    #    'Mobiltelefon': 'string', 'Arbetstelefon': 'string', 'Övrig medlemsinfo': 'string'}
+    _dtype = {'Förnamn': 'string','Efternamn': 'string','Födelsedat./Personnr.': 'string', 'Medlemsnr.': 'string',
+        'Övrig medlemsinfo': 'string', 'Typ':'string'}
+    _converters = {
+        'Telefon mobil':normalize_phonenumber, 
+        'Telefon bostad':normalize_phonenumber, 
+        'Telefon arbete':normalize_phonenumber, 
+        'Hemtelefon':normalize_phonenumber, 
+        'Mobiltelefon':normalize_phonenumber, 
+        'Arbetstelefon':normalize_phonenumber, 
+        'E-post kontakt':normalize_email, 'E-post privat':normalize_email,
+        'Kontakt 1 epost':normalize_email, 
+        'Postnummer':convert_postnr, 
+        'Kontaktadress - Postort':normalize_postort,
+        'Folkbokföring - Postort':normalize_postort,
+        'Postort':normalize_postort}
+    if columns:
+        return pd.read_excel(file_name, 
+            usecols = columns,
+            dtype = _dtype,
+            converters = _converters) 
+    else:
+        return pd.read_excel(file_name,
+            dtype = _dtype,
+            converters = _converters)
+
+def get_all_from_export(io_export_file_name):
+    """
+    Read in all columns of interest from exported persons
+    """
+    # Get IO Export
+    raw_df = _read_io_file(io_export_file_name)
+    raw_df.to_csv(path_out+'csv/_all.csv')
+    stats("Antal medlemmar exporterade från IO: {} ({})".format(str(len(raw_df)), Path(io_export_file_name).name))
+
+    # Convert to nice format
+    output_df = pd.DataFrame()
+    output_df['Förnamn'] = raw_df['Förnamn']
+    output_df['Efternamn'] = raw_df['Efternamn']
+    output_df['Parent'] = raw_df['Målsman']
+    output_df['Födelsedatum'] = raw_df['Födelsedat./Personnr.']
+    add_rule("'År i år' är inte exakt antal år, utan just 'år i år'")
+    output_df['År i år'] = output_df['Födelsedatum'].apply(calculate_age_class)
+    output_df['Mobil'] = raw_df['Telefon mobil']
+    output_df['Telefon bostad'] = raw_df['Telefon bostad']
+    add_rule("'E-post kontakt' används som 'E-post'")
+    output_df['E-post'] = raw_df['E-post kontakt']
+    add_rule("'Folkbokföringsadress' används som kontaktadress")
+    output_df['Gatuadress'] = raw_df['Folkbokföring - Gatuadress']
+    output_df['Postnummer'] = raw_df['Folkbokföring - Postnummer']
+    output_df['Postort'] = raw_df['Folkbokföring - Postort']
+    output_df['Grupp'] = raw_df['Grupp/Lag/Arbetsrum/Familj']
+    output_df['UGrupp'] = raw_df['Grupp/Lag/Arbetsrum/Familj'].apply(only_youth_groups)
+    output_df['Familj'] = raw_df['Familj']
+    # Use encoded IdrottsID as id
+    add_rule("Unikt ID per person har skapats")
+    output_df['ID'] = raw_df['IdrottsID'].apply(lambda x: base_encode(int(x.replace('IID',''))))
+    output_df['Registrerad'] = raw_df['Registreringsdatum']
+    output_df['Prova-på'] = raw_df['Typ'].dropna().apply(lambda x: str(x).replace("P","Ja"))
     
-    #print(df)
-    return df
- 
-# Merge full personnumer into members
-def merge_dfs(df1, df2, on, dir = 'left'):
-    """
-    Merge dataframes based on column 'on'
-    """
-    merged_df = pd.merge(df1, df2, 
-                     on = on,
-                     how = dir,
-                     validate = 'one_to_one')
-    return merged_df
+    return output_df
 
-def save_file(file_name, df):
-    """
-    Save to Excel file.
-    Feature: Personnummer2 is in format string, else scentific output format
-    """
-    ##with ExcelWriter(file_name) as writer:
-    ##    df.to_excel(writer)
-    # df["Personnummer2"] = df["Personnummer2"].astype('int64') # Funkar inte
-    # df["Personnummer2"] = df["Personnummer2"].astype('object') # Funkar inte
-    #df["Personnummer2"] = df["Personnummer2"].astype('string') # Funkar men string
-    #df["Personnummer2"] = df["Personnummer2"].astype('float64') # 
-    #df["Hemtelefon"] = df["Hemtelefon"].astype('string') 
-    df.to_excel(file_name, index=False)
-    return df
+def group_in_groups(groups, grp):
+    '''
+    Check if group 'A' is in list [' A','B','C'] (True)
+    '''
+    if groups is np.nan:
+        return False
 
-# file = path + 'files/Senior-excel.txt'
+    l = list(groups.split(",")) 
+    l =[x.strip() for x in l]
+    return grp in l
 
-def process_files(path):
+def only_youth_groups(groups):
     """
-    Process list fo files. Merges full personnummer with existing My Club Member files
-    Expected filenames:
-    - <Group>-excel.txt
-    - <Group>-excel.xls
-    Output:
-    - <Group>-merged.xlsx
+    Filter out only Youth groups
     """
-    with os.scandir(path) as it:
-        for entry in it:
-            i_df = None
-            m_df = None
-            merged_df = None
-            name = entry.name
-            if entry.is_file() and name.endswith('-excel.txt'): 
-                print(name)
-                i_df = read_id_file(path + "/" + name)
-                m_df = read_file(path + "/" + name.replace('.txt','.xls'))
-                merged_df = merge_dfs(m_df, i_df, 'MedlemsID', 'left')
-                save_file(path + "/" + name.replace('-excel.txt','-merged.xlsx'), merged_df)
+    result = []
+    groups_str = str(groups)
+    for grp in groups_str.split(','):
+        if grp.strip() in youth_groups:
+            result.append(grp.strip())
+    
+    if len(result) > 0: 
+        return ",".join(result)
+    else:
+        return ""
 
-    it.close()
+def calculate_age_class(birth_date):
+    '''
+    Convert birth date of format 1931-01-21 to age for given current year (= not exact age)
+    '''
+    if pd.isna(birth_date):
+        return ""
+    return today.year - int(birth_date[0:4])
+
+def names_to_key(fname,lname):
+    '''
+    Construct key to be able to map child with parent
+    '''
+    return (fname.strip() + '_' + lname.strip()).replace(' ','_').lower()
+
+def parentinfo_to_key(info):
+    '''
+    Construct key to be able to map parent with child
+    '''
+    return info.replace('Till målsman för: ','').replace(' ','_').strip().lower()
+
+def normalize_group_name(name, lowercase = False, strip_ol = True):
+    '''
+    Normalize group name to name to be used for file-names etc.
+    '''
+    name = name.strip().replace(' ','_')
+    name = name.strip().replace('_-_','-')
+    if strip_ol and name.startswith('OL_'):
+        name = name.replace('OL_', '', 1)
+    if lowercase:
+        name = name.lower()
+    return name
+
+def save_templated_youth_excel(template, df, filename, rules):
+    '''
+    Saves Excel file for youth group
+    - Opens Excel template
+    - Adds data frame information
+    - Save to new file for current data frame
+    '''
+    wb = Workbook()
+    wb = load_workbook(template)
+
+    # Set empty cells to ""
+    df.fillna("", inplace=True)
+
+    # Add rules info
+    ws = wb["Information"]
+    row = 15
+    for rule in rules:
+        ws.cell(column=2, row=row, value=rule)
+        row += 1
+
+    # Kontaktlista
+    ws = wb["Kontaktlista"]
+    for rowidx, row in df.iterrows():
+        col = 1
+        for c in row.values:
+            #ws.cell(column=col, row=rowidx+2, value="{}".format(c))
+            ws.cell(column=col, row=rowidx+1, value=c)
+            col += 1
+
+    # Närvarolista
+    ws = wb["Närvarolista"]
+    for rowidx, row in df[['Förnamn','Efternamn','År i år','ID']].iterrows():
+        col = 1
+        for c in row.values:
+            ws.cell(column=col, row=rowidx+1, value=c)
+            col += 1
+
+    # Checklista
+    ws = wb["Checklista"]
+    for rowidx, row in df[['Förnamn','Efternamn','År i år','ID']].iterrows():
+        col = 1
+        for c in row.values:
+            ws.cell(column=col, row=rowidx+1, value=c)
+            col += 1
+
+    wb.save(filename = filename)
+
+def save_templated_excel(template, df, filename, rules):
+    '''
+    Saves Excel file for group
+    - Opens Excel template
+    - Adds data frame information
+    - Save to new file for current data frame
+    '''
+    wb = Workbook()
+    wb = load_workbook(template)
+
+    # Set empty cells to ""
+    df.fillna("", inplace=True)
+
+    # Add rules info
+    ws = wb["Information"]
+    r = 15
+    for rule in rules:
+        ws.cell(column=2, row=r, value=rule)
+        r += 1
+
+    # Kontaktlista
+    ws = wb["Kontaktlista"]
+    for rowidx, row in df.iterrows():
+        col = 1
+        for c in row.values:
+            ws.cell(column=col, row=rowidx+1, value=c)
+            col += 1
+
+    # Närvarolista
+    ws = wb["Närvarolista"]
+    for rowidx, row in df[['Förnamn','Efternamn','År i år','ID']].iterrows():
+        col = 1
+        for c in row.values:
+            ws.cell(column=col, row=rowidx+1, value=c)
+            col += 1
+
+    # Checklista
+    ws = wb["Checklista"]
+    for rowidx, row in df[['Förnamn','Efternamn','År i år','ID']].iterrows():
+        col = 1
+        for c in row.values:
+            ws.cell(column=col, row=rowidx+1, value=c)
+            col += 1
+
+    wb.save(filename = filename)
+
+def calculate_type(birth_date):
+    age = 0
+    if pd.isna(birth_date):
+        age = 0
+    else:
+        age = today.year - int(birth_date[0:4])
+    return "U" if age < 25 else "V"
+
+def create_youth_contactlist(name, df_src, df_p):
+    '''
+    Create contact list for given youth group
+    - name: Name of this youth group
+    - df_src: Data frame with only children of this group
+    - df_p: Data frame with all parents (all groups)
+    '''
+    print("Create youth contactlist for group: {}".format(name))
+
+    # Include persons only in current group
+    df_c = df_src[df_src['UGrupp'].isin([name])].copy()
+
+    # Merge parents with children - in two steps
+    add_rule("Målsmän används som föräldrar för ungdomar")
+    df_m = pd.merge(df_c, df_p[df_p['parent_no'] == 1], how='left', left_on='key', right_on='ref', suffixes=('','1'))
+    df_m = pd.merge(df_m, df_p[df_p['parent_no'] == 2], how='left', left_on='key', right_on='ref', suffixes=('','2'))
+    df_m.drop(columns=['Parent', 'Grupp', 'UGrupp', 'key', 'Parent1', 'Födelsedatum1', 'Registrerad1', 'Prova-på1',
+        'År i år1', 'Grupp1', 'UGrupp1','Familj1', 'ref', 'parent_no',
+        'Parent2', 'Födelsedatum2', 'Registrerad2', 'Prova-på2', 'År i år2', 
+        'Grupp2', 'UGrupp2', 'Familj2', 'ref2', 'parent_no2'], inplace=True)
+    
+    add_rule("För ungdomsgrupper visas ungdomar först, vuxna sist")
+    df_m.insert(4, 'Typ', df_m['Födelsedatum'].apply(calculate_type))
+
+    # Sort
+    df_m.sort_values(by=['Typ','Efternamn', 'Förnamn'], inplace=True)
+
+    # Set index to 1..n
+    df_m.index = np.arange(1,len(df_m)+1)
+
+    # To Excel
+    save_templated_youth_excel(youth_contactlist_template,df_m,path_out+normalize_group_name(name,True,False)+'_listor.xlsx', get_rules())
+    
+    # To CSV
+    df_m.to_csv(path_out+'csv/'+normalize_group_name(name,True,False)+'_kontaktlista.csv')
+
+    # To JSON - split seems to be best
+    df_m[['Förnamn', 'Efternamn', 'ID', 'År i år']].to_json(path_out+'json/'+normalize_group_name(name,True,False)+'.json', orient='split', force_ascii=False)
+
+def create_contactlist(name, df):
+    '''
+    Create contact list for given group name
+    - name: Name of this group of interest
+    - df: Group of persons 
+    '''
+    print("Create contactlist for group: {}".format(name))
+
+    df.drop(columns=['Parent', 'Grupp', 'UGrupp','Familj'], inplace=True)
+    # Set index to 1..n
+    df.index = np.arange(1,len(df)+1)
+
+    # To Excel
+    save_templated_excel(contactlist_template,df,path_out+normalize_group_name(name,True,False)+'_listor.xlsx', get_rules())
+
+    # To CSV
+    df.sort_values(by=['Efternamn', 'Förnamn']).to_csv(path_out+'csv/'+normalize_group_name(name,True,False)+'_kontaktlista.csv')
+
+    # To JSON
+    df[['Förnamn', 'Efternamn', 'ID', 'År i år']].sort_values(by=['Efternamn', 'Förnamn']).to_json(path_out+'json/'+normalize_group_name(name,True,False)+'.json', orient='split', force_ascii=False)
+
+def io_bug_detector(fname, lname, parent):
+    '''
+    Check if valid parent or not (=not same name as self)
+    '''
+    return True if (fname + " " + lname) ==  parent.replace("Till målsman för: ","") else False
 
 # Action 
+print(" Start ".center(80, "-"))
 
-# Get mapping of id <-> pnr
-#id_df = read_id_file(path + "/Senior-excel.txt")
+if "contact_list" == cmd:
+    print("Create contact list file")
+    df_all = get_all_from_export(io_export_file_name)
+    #df_all.to_csv(path_out+'all.csv')
 
-# Get members from file
-#members = read_file(path + "/Senior-excel.xls")
+    # Get df for only parents
+    df_parents = df_all[df_all['Parent'].notnull()].copy()
 
-# Merge
-#mdf = merge_dfs(members, id_df, 'MedlemsID', 'left')
-#print(mdf['Personnummer2'])
-#print(mdf['Personnummer2'].dtypes)
+    # Idrott Online exports children without "målsmän" wrong
+    # These children becomes parents ("målsmän") to themselves which must be wrong
+    # Removing theses erroneous rows
+    io_bug = df_parents.apply(lambda x: io_bug_detector(x['Förnamn'],x['Efternamn'],x['Parent']), axis=1)
+    # Exclude persons that is parents to themselves - according to IO
+    df_parents = df_parents.loc[~io_bug]
 
-# Save result
-#result = save_file(path + "/Senior-merged.xlsx", mdf)
-#print(result['Personnummer2'])
-#print(result['Personnummer2'].dtypes)
+    # Get df for children (training in defined group)
+    df_training_children = df_all[~df_all['Parent'].notnull() & df_all['UGrupp'].isin(youth_groups)].copy()
+    
+    # Construct key - so we can map this to parents later on
+    df_training_children['key'] = df_training_children.apply(lambda x: names_to_key(x['Förnamn'],x['Efternamn']),axis=1)
+ 
+    # Construct key ref - so we can map this to children later
+    df_parents['ref'] = df_parents.apply(lambda x: parentinfo_to_key(x['Parent']),axis=1)
+    df_parents['parent_no'] = df_parents.groupby(['ref'], dropna=False)['ref'].cumcount()+1
 
-process_files('/usr/src/app/files')
+    # Create contact list for each youth group separately
+    for grp in youth_groups:
+        df = df_training_children[(df_training_children['Grupp'].apply(lambda x: group_in_groups(x,grp)))].copy()
+        create_youth_contactlist(grp, df, df_parents)
 
-print("done handle_members.py")
+    # Create contact lists for other groups separately 
+    for grp in youth_coach_groups + other_groups:
+        df = df_all[(~(df_all['Parent'].str.len()>0)) & (df_all['Grupp'].apply(lambda x: group_in_groups(x,grp)))].copy()
+        create_contactlist(grp, df)
+
+print("Tidsåtgång: " + str(round((time.time() - start_time),1)) + " s")
+print((" Klart (" + strftime("%Y-%m-%d %H:%M") + ") ").center(80, "-"))
