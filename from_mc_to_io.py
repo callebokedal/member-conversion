@@ -1,4 +1,3 @@
-# pylint: disable=import-error
 import pandas as pd
 import numpy as np
 import os, sys
@@ -15,7 +14,7 @@ from packages.utils import convert_countrycode, convert_mc_personnummer_to_io, c
     validate_file
 
 """
-Script to export members from My Cloud and import in Idrott Online
+Script to export members from My Club and import in Idrott Online
 """
 
 # Update to correct timezone
@@ -28,7 +27,6 @@ timestamp = str(strftime("%Y-%m-%d_%H.%M")) # Timestamp to use for filenames
 
 # Remeber start time
 start_time = time.time()
-
 
 path = '/usr/src/app/files/'            # Required base path
 path_out = '/usr/src/app/files/last/'   # Output path
