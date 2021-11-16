@@ -135,11 +135,19 @@ def convert_postnr(mc_nr):
     else:
         return nr
 
+def normalize_name(x, correct_case=True):
+    """Normalize name
+    This to improve data quality (remove trailing spaces, try to correct case)
+    """
+    # "stora vägen 23 a" -> "Stora Vägen 23 A"
+    # "olle" -> "Olle"
+    if not correct_case:
+        # Only strip
+        return x if type(x)!=str else x.strip()    
+    return x if type(x)!=str else x.title().strip()
+
 def normalize_postort(x):
-    """
-    Normalize Postort, "city somewhere" -> "City Somewhere"
-    """
-    return x if type(x)!=str else x.title()
+    return normalize_name(x)
 
 def convert_countrycode(country):
     """

@@ -39,3 +39,15 @@ clear && docker run -it --rm --name my-test-script -v "$PWD":/usr/src/app -w /us
 	files/2020-11-13_MyClub_invoice_export.xls \
 	files/2020-11-11_all-io-members2.xlsx
 ```
+
+## Create contact-lists for some, hard-coded, IO groups.
+
+1. Export members from Idrott Online (all groups and 'Födelsedatum' incl. 'Målsmän')
+	- Administration -> Personer
+	- Make sure to have "Orientering" as selected section
+	- Person: "Medlemmar och prova-på" + Sök
+	- Choose: "Exportera till Excel" and check "Exportera födelsedatum" and "Inkludera målsman"
+	- Save Excel result locally
+2. Run handle_members.sh (with correct parameters, like cmd)
+	- Make sure to point to desired Excel export file
+3. Done. Files now created for all groups - in Excel, csv and json format
